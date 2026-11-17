@@ -1,0 +1,242 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Design system: "Document", shared with pavelnovel.com.
+
+  The page is a plain working document: one column, quiet rules, no cards
+  floating on shadows. Ink — the accent and the hand-drawn marks — appears
+  only where the visitor makes a choice.
+*/
+
+@layer base {
+  :root {
+    --bg: #ffffff;
+    --surface: #fbfaf9;
+    --wash: #f4f2ef;
+    --rule: #e9e6e1;
+    --text: #2e2e2c;
+    --muted: #767470;
+    --faint: #a9a6a1;
+    /* pavelnovel.com uses #d9482f. That is 4.3:1 on white, just under AA for
+       small text, and here the accent carries links and the primary button.
+       #cf3f27 is the same hue a step deeper: 4.8:1. */
+    --accent: #cf3f27;
+    --accent-soft: rgba(207, 63, 39, 0.1);
+    --on-accent: #ffffff;
+    color-scheme: light;
+  }
+
+  :root[data-theme='dark'] {
+    --bg: #191919;
+    --surface: #202020;
+    --wash: #262626;
+    --rule: #303030;
+    --text: #e4e2de;
+    --muted: #9d9a95;
+    --faint: #6d6a66;
+    --accent: #f2705a;
+    --accent-soft: rgba(242, 112, 90, 0.14);
+    --on-accent: #1a1a1a;
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: theme('fontFamily.sans');
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    transition:
+      background-color 260ms ease,
+      color 260ms ease;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-old(root) {
+    z-index: 1;
+  }
+
+  ::view-transition-new(root) {
+    z-index: 2;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+}
+
+@layer components {
+  .doc {
+    @apply mx-auto w-full max-w-doc px-4 sm:px-6;
+  }
+
+  .sheet {
+    @apply mx-auto w-full max-w-sheet px-4 sm:px-6;
+  }
+
+  .doc-h1 {
+    @apply text-[1.75rem] font-bold leading-tight tracking-[-0.022em] sm:text-[2rem];
+  }
+
+  .doc-h2 {
+    @apply text-[1.375rem] font-bold leading-snug tracking-[-0.018em];
+  }
+
+  /* Mono stamps here carry information (durations, labels), so they use
+     the muted tone; faint does not meet contrast for text people need. */
+  .stamp {
+    @apply font-mono text-[0.6875rem] tracking-tight text-muted;
+  }
+
+  .link {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    transition: text-decoration-color 160ms ease;
+  }
+
+  .link:hover {
+    text-decoration-color: var(--accent);
+  }
+
+  /* ---- Buttons ------------------------------------------------------- */
+
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[6px] px-4 text-[0.9375rem] font-semibold;
+    background: var(--accent);
+    color: var(--on-accent);
+    transition:
+      filter 160ms ease,
+      transform 160ms theme('transitionTimingFunction.doc');
+  }
+
+  .btn:hover {
+    filter: brightness(1.06);
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn[aria-busy='true'] {
+    cursor: progress;
+    filter: saturate(0.6);
+  }
+
+  .btn-quiet {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[6px] border border-rule px-4 text-[0.9375rem] font-medium;
+    transition:
+      border-color 160ms ease,
+      color 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .btn-quiet:hover {
+    border-color: var(--faint);
+    background: var(--surface);
+  }
+
+  .btn-text {
+    @apply inline-flex min-h-[44px] items-center gap-1.5 rounded-[6px] px-1 text-[0.875rem] font-medium text-muted;
+    transition: color 160ms ease;
+  }
+
+  .btn-text:hover {
+    color: var(--text);
+  }
+
+  /* ---- Form fields ---------------------------------------------------- */
+
+  .field-label {
+    @apply mb-1.5 block text-[0.875rem] font-medium;
+  }
+
+  .field {
+    @apply block w-full rounded-[6px] border border-rule bg-page px-3 py-2.5 text-[0.9375rem];
+    min-height: 44px;
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .field::placeholder {
+    color: var(--faint);
+  }
+
+  .field:hover {
+    border-color: var(--faint);
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  textarea.field {
+    resize: vertical;
+    min-height: 96px;
+  }
+
+  select.field {
+    appearance: none;
+    padding-right: 2.25rem;
+    background: var(--bg)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")
+      no-repeat right 0.875rem center / 0.625rem;
+    cursor: pointer;
+  }
+
+  /* ---- Step entrance ---------------------------------------------------
+     One small move when a step appears, so the change is visible without
+     performing.
+  */
+
+  .step.is-entering {
+    animation: step-in 360ms theme('transitionTimingFunction.doc');
+  }
+
+  @keyframes step-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

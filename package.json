@@ -1,0 +1,32 @@
+{
+  "name": "schedulum",
+  "type": "module",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000BB astro build && wrangler dev",
+    "check": "astro check",
+    "test": "vitest run",
+    "connect-google": "node scripts/connect-google.mjs",
+    "push-busy": "node scripts/push-busy.mjs",
+    "deploy": "astro build && wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^12.6.13",
+    "@astrojs/tailwind": "^6.0.2",
+    "astro": "^5.18.2",
+    "tailwindcss": "^3.4.19"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.1"
+  }
+}

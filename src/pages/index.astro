@@ -1,0 +1,9 @@
+---
+import Booker from '../components/Booker.astro';
+import Layout from '../layouts/Layout.astro';
+import { host } from '../config';
+---
+
+<Layout title={`Talk with ${host.name}`}>
+  <Booker mode="book" />
+</Layout>

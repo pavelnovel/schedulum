@@ -1,0 +1,19 @@
+---
+/**
+ * Every topic has its own address, like a Calendly event link: share
+ * meet.pavelnovel.com/speaking and the visitor lands on the calendar.
+ */
+import Booker from '../components/Booker.astro';
+import Layout from '../layouts/Layout.astro';
+import { host, routes, type Route } from '../config';
+
+export function getStaticPaths() {
+  return routes.map((route) => ({ params: { route: route.id }, props: { route } }));
+}
+
+const { route } = Astro.props as { route: Route };
+---
+
+<Layout title={`${route.label} · ${host.name}`} description={route.response} path={`/${route.id}`}>
+  <Booker mode="book" initialRoute={route.id} />
+</Layout>
