@@ -1,0 +1,19 @@
+# Copy to .dev.vars for local development. Never commit .dev.vars.
+#
+# fake: an in-memory calendar with made-up busy blocks. Safe to click around.
+# google: your real calendar. Bookings send real invites.
+CALENDAR_MODE=fake
+PUBLIC_URL=http://localhost:4321
+SIGNING_SECRET=dev-only-signing-secret-change-me-0000000000
+
+# Filled in by `npm run connect-google`:
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
+# GOOGLE_REFRESH_TOKEN=
+# BUSY_CALENDARS=primary
+
+# Set BUSY_SYNC_SECRET (32+ characters) only to try PUT /api/busy locally;
+# wrangler dev gives SYNCED_BUSY a local namespace.
+
+# Leave TURNSTILE_SECRET_KEY unset here. The dev server has no Turnstile
+# widget, so with the secret set every local booking would be refused.

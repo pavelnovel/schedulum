@@ -1,0 +1,59 @@
+---
+import Booker, { type ManageBoot } from '../../components/Booker.astro';
+import Layout from '../../layouts/Layout.astro';
+import { host } from '../../config';
+import { BookingError, lengthOf, lookup } from '../../lib/booking';
+import { depsFrom } from '../../lib/http';
+
+export const prerender = false;
+
+const token = Astro.params.token ?? '';
+let manage: ManageBoot | undefined;
+let problem: string | undefined;
+
+try {
+  const { booking, label } = await lookup(depsFrom(Astro.locals, Astro.request), token);
+  if (booking.start.getTime() <= Date.now()) {
+    problem = 'This conversation has already happened, so it can’t be changed here.';
+  } else {
+    manage = {
+      token,
+      routeId: booking.routeId,
+      label,
+      minutes: lengthOf(booking),
+      start: booking.start.toISOString(),
+      end: booking.end.toISOString(),
+      meetUrl: booking.meetUrl,
+    };
+  }
+} catch (err) {
+  if (err instanceof BookingError) {
+    problem = err.message;
+    Astro.response.status = 404;
+  } else {
+    console.error('schedulum: manage lookup failed', err);
+    problem = `The calendar isn’t answering right now. Try again in a minute, or email ${host.email}.`;
+    Astro.response.status = 503;
+  }
+}
+
+// The token in this URL is a capability. Keep it out of caches and referrers.
+Astro.response.headers.set('cache-control', 'no-store');
+Astro.response.headers.set('referrer-policy', 'no-referrer');
+---
+
+<Layout title={`Your conversation with ${host.firstName}`} robots="noindex, nofollow" path="/manage/">
+  {
+    manage ? (
+      <Booker mode="manage" manage={manage} />
+    ) : (
+      <section class="doc">
+        <h1 class="doc-h1">Nothing to change here</h1>
+        <p class="mt-3 text-muted">{problem}</p>
+        <p class="mt-6">
+          <a class="btn" href="/">Book a new time</a>
+        </p>
+      </section>
+    )
+  }
+</Layout>

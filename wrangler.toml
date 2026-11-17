@@ -1,0 +1,29 @@
+name = "schedulum"
+# Astro's Cloudflare adapter builds the server into dist/_worker.js. Static
+# pages are served from dist as assets; everything else reaches the Worker.
+main = "./dist/_worker.js/index.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+# Deploying attaches the domain and creates its DNS record in the
+# pavelnovel.com zone, which lives in the same Cloudflare account. Without a
+# domain on Cloudflare, delete this line and PUBLIC_URL: the site runs at
+# schedulum.<your-subdomain>.workers.dev, and manage links use that address.
+routes = [{ pattern = "meet.pavelnovel.com", custom_domain = true }]
+
+[assets]
+binding = "ASSETS"
+directory = "./dist"
+
+[vars]
+PUBLIC_URL = "https://meet.pavelnovel.com"
+BUSY_CALENDARS = "primary"
+
+# Busy times from calendars Google won't share with Schedulum, pushed from
+# a server signed in to them by scripts/push-busy.mjs. See SETUP.md.
+[[kv_namespaces]]
+binding = "SYNCED_BUSY"
+id = "d65fff4ab6ab476ba481d742c6c5544c"
+
+[observability]
+enabled = true

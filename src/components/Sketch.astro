@@ -1,0 +1,187 @@
+---
+/**
+ * A hand-drawn mark over whatever it wraps.
+ *
+ * The paths are generated at build time (see src/lib/sketch.ts) and stretched
+ * to fit the slot, so nothing is measured in the browser. The stroke is
+ * `currentColor`, which means the mark follows the theme through the dark-mode
+ * wipe with no repainting — the reason these are drawn rather than shipped as
+ * images.
+ */
+import { sketchPaths, type SketchType } from '../lib/sketch';
+
+interface Props {
+  type?: SketchType;
+  /** Changing this redraws the mark differently. Same seed, same drawing. */
+  seed?: number;
+  /** Marks lead with the accent; 'faint' is for rhythm rather than emphasis. */
+  tone?: 'accent' | 'faint' | 'text';
+  /** Held back so the mark lands after the thing it is marking. */
+  delay?: number;
+  /** Extra classes on the wrapper, for one-off nudges. */
+  class?: string;
+}
+
+const {
+  type = 'underline',
+  seed = 1,
+  tone = 'accent',
+  delay = 0,
+  class: extra = '',
+} = Astro.props;
+
+const paths = sketchPaths(type, seed);
+---
+
+<span class:list={['sketch-wrap', extra]}>
+  <slot />
+
+  <svg
+    class:list={['sketch', `sketch--${type}`, `sketch--${tone}`]}
+    viewBox="0 0 100 100"
+    preserveAspectRatio="none"
+    aria-hidden="true"
+    focusable="false"
+    style={`--sketch-delay: ${delay}ms`}
+  >
+    {
+      paths.map((d) => <path d={d} vector-effect="non-scaling-stroke" />)
+    }
+  </svg>
+</span>
+
+<style>
+  .sketch-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  .sketch {
+    position: absolute;
+    /* The mark sits over the text and must never eat a click. */
+    pointer-events: none;
+    overflow: visible;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.9;
+  }
+
+  .sketch--accent {
+    color: var(--accent);
+  }
+
+  .sketch--faint {
+    color: var(--faint);
+  }
+
+  .sketch--text {
+    color: var(--text);
+  }
+
+  /*
+    Width and height are always explicit. An <svg> is a replaced element with
+    an intrinsic aspect ratio from its viewBox, so `inset: 0 -0.5em` does not
+    stretch it — it takes the width from the insets and then derives a
+    matching height, which turns every mark into a square.
+  */
+  .sketch--underline {
+    left: -0.12em;
+    bottom: -0.3em;
+    width: calc(100% + 0.24em);
+    height: 0.36em;
+  }
+
+  .sketch--strike {
+    left: -0.14em;
+    top: 50%;
+    width: calc(100% + 0.28em);
+    height: 0.3em;
+    margin-top: -0.15em;
+  }
+
+  .sketch--circle {
+    left: -0.72em;
+    top: -0.26em;
+    width: calc(100% + 1.44em);
+    height: calc(100% + 0.52em);
+  }
+
+  .sketch--bracket {
+    left: -0.5em;
+    top: -0.24em;
+    width: calc(100% + 1em);
+    height: calc(100% + 0.48em);
+  }
+
+  .sketch--box {
+    left: -0.5em;
+    top: -0.32em;
+    width: calc(100% + 1em);
+    height: calc(100% + 0.64em);
+  }
+
+  /*
+    The mark is revealed by a left-to-right wipe rather than a dash offset.
+    A dash trace is the obvious way to draw a line on, but stroke-dasharray
+    is measured in user units while `vector-effect: non-scaling-stroke`
+    strokes in transformed space — with the box stretched to fit the text,
+    the two disagree and a "solid" line renders as two long dashes. A wipe
+    has no length arithmetic in it, so it cannot drift.
+
+    Insets are generous on three sides so the clip never shaves the stroke or
+    its round caps; only the right edge travels.
+  */
+  .sketch {
+    clip-path: inset(-60% 100% -60% -60%);
+  }
+
+  .sketch.is-drawn {
+    clip-path: inset(-60% -8% -60% -60%);
+    transition: clip-path 640ms cubic-bezier(0.33, 0.9, 0.5, 1);
+    transition-delay: var(--sketch-delay, 0ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sketch,
+    .sketch.is-drawn {
+      clip-path: none;
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  // One observer for every mark on the page. Marks draw when they arrive
+  // rather than all at once on load, so scrolling the document feels like
+  // someone is annotating it just ahead of you.
+  const marks = document.querySelectorAll<SVGElement>('.sketch');
+  const draw = (mark: Element) => mark.classList.add('is-drawn');
+
+  // A hidden document does not deliver intersections, and would leave every
+  // mark at full dash offset — invisible rather than merely un-animated.
+  // There is nothing to animate for a reader who cannot see the page, so
+  // draw them and be done.
+  if (!('IntersectionObserver' in window) || document.visibilityState === 'hidden') {
+    marks.forEach(draw);
+  } else {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          draw(entry.target);
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.35, rootMargin: '0px 0px -8% 0px' }
+    );
+
+    marks.forEach((mark) => observer.observe(mark));
+
+    // Safety net, matching the load stagger's: never leave a mark undrawn
+    // because a callback went missing.
+    window.setTimeout(() => marks.forEach(draw), 2500);
+  }
+</script>
