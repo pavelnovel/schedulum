@@ -1,104 +1,112 @@
 # Schedulum
 
-Pavel's scheduling page, at `meet.pavelnovel.com`. It works like Calendly:
-the calendar is the first thing a visitor sees, and nothing has to be chosen
-before a time. Beside it, the things Pavel likes talking about are there to
-pick from if the visitor wants to.
+A booking page for one person, on your own domain. Visitors see your open
+times on their own clock, pick one, and get a Google Calendar invite with a
+Meet link. It runs as a single Cloudflare Worker and books straight into
+Google Calendar, with no database and no scheduling service in between.
 
-```text
-Let's find a time to talk
-→ pick a time from his real Google Calendar availability, on your clock,
-  within your own 9 AM to 7 PM
-→ name, email, and one optional question
-  (pick a topic, and the question is that topic's)
-→ calendar invite with a Google Meet link
-→ a private link to reschedule or cancel
-```
+It's the code behind [meet.pavelnovel.com](https://meet.pavelnovel.com).
 
-On a wide screen booking is one click to the form: a time. The topics sit in
-the rail beside the calendar; on a phone they're a choice in the form. When
-none of Pavel's open times fall in the visitor's working day, the page shows
-the full schedule anyway, says so, and offers a note: a few lines that land in
-his inbox, with the visitor to reply to.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/calendar-dark.png">
+  <img src="docs/screenshots/calendar-light.png" alt="The booking page. On the left, the heading “Let’s find a time to talk” and a list of optional topics. On the right, a month calendar with the open days marked and the open times for the selected day.">
+</picture>
 
-## Status
+## What a visitor sees
 
-Live at <https://meet.pavelnovel.com> since 2026-10-19, booking into
-`pkonopl@gmail.com`'s primary calendar. Every push to `main` deploys.
-[SETUP.md](SETUP.md) covers reconnecting the calendar and rebuilding the
-setup.
+The calendar comes first. Nobody has to choose a topic or a meeting type
+before they see a time. On a wide screen, one click on a time opens the form:
+name, email, and one optional question. Google Calendar sends the
+invite, and the invite carries a private link to reschedule or cancel.
+
+Times are in the visitor's time zone, taken from their device. When
+Cloudflare's guess from their IP address disagrees, as it does on a VPN, the
+page offers a one-click switch. By default it shows only the times that fit
+inside the visitor's own 9 AM to 7 PM, and one link shows the rest.
+
+When none of your open times fall in the visitor's day, the page says so,
+shows the full schedule anyway, and offers a note. The note goes to your
+inbox from your own Gmail address, with the visitor as the reply-to.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/full-schedule-dark.png">
+  <img src="docs/screenshots/full-schedule-light.png" alt="The same page for a visitor in Tokyo. A notice reads: None of my open times fall between 9 AM and 7 PM for you, so here’s my full schedule. Below it are a Send me a note button and times labelled night and early.">
+</picture>
+
+Topics are optional. Each one has its own link, such as `/speaking`, that
+opens the calendar with the topic already picked. Picking a topic shows a few
+lines about it and swaps the form's question for that topic's own.
 
 ## How it works
 
 ```text
-Astro static pages (the booking page, one per topic, privacy)
-  └─ src/scripts/booker.ts      the flow, calendar, and time picker
-One Cloudflare Worker (serves the static pages as assets)
-  ├─ GET  /api/slots            free slots for a conversation's length
-  ├─ POST /api/book             spam check, re-checks the slot, creates the event
-  ├─ POST /api/manage           reschedule or cancel by signed token
-  ├─ POST /api/note             spam check, then a note to Pavel's Gmail
+Astro static pages: the booking page, one page per topic, privacy
+  └─ src/scripts/booker.ts      calendar, time picker, form, and note
+One Cloudflare Worker, which also serves the static pages
+  ├─ GET  /api/slots            open times for a meeting length
+  ├─ POST /api/book             spam check, re-checks the time, creates the event
+  ├─ POST /api/manage           reschedule or cancel, by signed token
+  ├─ POST /api/note             spam check, then one email to you
   ├─ PUT  /api/busy             busy times pushed from another server
-  └─ GET  /manage/<token>       the guest's manage page
+  └─ GET  /manage/<token>       the guest's reschedule or cancel page
 src/lib/
-  ├─ availability.ts            working hours − busy blocks → slots (pure)
-  ├─ hours.ts, fit.ts           the visitor's own hours, and what the page says about them (pure)
+  ├─ availability.ts            working hours minus busy blocks, as slots
+  ├─ hours.ts, fit.ts           the visitor's hours, and what the page tells them
   ├─ booking.ts                 booking rules, independent of HTTP
+  ├─ calendar.ts                the interface a calendar provider implements
   ├─ google.ts                  Google Calendar over fetch
   ├─ note.ts                    a visitor's note, sent through Gmail
-  ├─ synced.ts                  adds the pushed busy times to Google's
+  ├─ synced.ts                  merges pushed busy times with Google's
   ├─ turnstile.ts               Cloudflare Turnstile verification
-  └─ fake.ts                    in-memory calendar for dev and tests
-scripts/push-busy.mjs           on a server: other accounts' free/busy → /api/busy
+  └─ fake.ts                    an in-memory calendar for development and tests
+scripts/push-busy.mjs           runs on a server, sends other accounts' busy times
 ```
 
-New bookings pass Cloudflare Turnstile, and one person can hold at most two
-upcoming bookings (`+` aliases and Gmail dots count as the same address).
+Google Calendar handles delivery: the invite email, updates, cancellations,
+reminders, and the Meet link. A guest's name, email, and note go only into
+the calendar event, and a note goes only into one email to you. Schedulum
+itself stores only busy times from calendars on other Google accounts, such as
+a work calendar. An optional job pushes them every 10 minutes.
 
-Google Calendar does the delivery: the invite email, updates, cancellations,
-reminders, and the Meet link. The guest's name, email, and note go only into
-the calendar event, or for a note only into one email to Pavel. The visitor's
-time zone, and Cloudflare's guess at it from their IP address, choose what the
-page shows; the zone they book in goes into the event. The one thing Schedulum
-stores itself is the busy times
-from Pavel's work calendar, which a job on his VPS reads from Google and
-pushes every 10 minutes.
-
-Everything Pavel is likely to edit (hours, meeting length, topics, copy) is in
-[`src/config.ts`](src/config.ts).
-
-## Develop
-
-```bash
-npm install
-cp .dev.vars.example .dev.vars   # CALENDAR_MODE=fake: no real calendar
-npm run dev                      # http://localhost:4321
-npm test                         # unit tests: availability, timezones, visitor hours, booking, notes, Google, Turnstile, sync
-npx playwright test              # browser tests, including axe checks (dev server must be running)
-```
+Bookings and notes pass Cloudflare Turnstile. One email address can hold at
+most two upcoming bookings, and Gmail dots and `+` aliases count as the same
+address.
 
 ## Run your own
 
-Fork it, then change what's Pavel's:
+You need a Google account for the calendar and a Cloudflare account. A domain
+is optional: without one, the page runs at
+`schedulum.<your-subdomain>.workers.dev`.
 
-- `src/config.ts`: your name and links, working hours, and topics.
-- `wrangler.toml`: your domain and `PUBLIC_URL`, or delete both to serve
-  from `schedulum.<your-subdomain>.workers.dev`, which needs no domain at
-  all. Also your KV namespace ID, or drop the `[[kv_namespaces]]` block if you
-  won't sync other calendars.
-- `astro.config.mjs`: `site`, your public address.
-- `.env.production`: the site key of your own Turnstile widget.
-- `src/pages/privacy.astro`: your own privacy page.
+Fork the repository, then replace what's Pavel's:
 
-[SETUP.md](SETUP.md) walks through Pavel's setup step by step: the Google
-OAuth client, the Cloudflare Worker, Turnstile, and the optional job that
-pushes busy times from other accounts. Use your own names where it uses his.
+| File | What to change |
+| --- | --- |
+| [`src/config.ts`](src/config.ts) | Your name and links, working hours, meeting length, and topics |
+| [`wrangler.toml`](wrangler.toml) | Your domain and `PUBLIC_URL`, or delete both to use `workers.dev`; your KV namespace ID, or delete that block |
+| [`astro.config.mjs`](astro.config.mjs) | `site`, the page's public address |
+| [`.env.production`](.env.production) | The site key of your own Turnstile widget |
+| [`src/pages/privacy.astro`](src/pages/privacy.astro) | Your privacy page |
 
-Google Calendar is the only calendar it talks to so far. The rest of the app
-only needs the `Calendar` interface in
-[`src/lib/calendar.ts`](src/lib/calendar.ts), so another provider, such as
-Outlook or CalDAV, is a new file beside `src/lib/google.ts`, chosen in
+Then follow [SETUP.md](SETUP.md) to create a Google OAuth client, connect
+your calendar, and deploy.
+
+Google Calendar is the only provider so far. The rest of the app talks to the
+`Calendar` interface in [`src/lib/calendar.ts`](src/lib/calendar.ts), so
+adding Outlook or CalDAV means a new file beside `src/lib/google.ts`, chosen in
 `src/lib/env.ts`.
+
+## Develop
+
+You need Node.js 22 or later.
+
+```bash
+npm install
+cp .dev.vars.example .dev.vars   # an in-memory calendar, no Google account needed
+npm run dev                      # http://localhost:4321
+npm test                         # unit tests
+npx playwright test              # browser and accessibility tests, with the dev server running
+```
 
 ## License
 
