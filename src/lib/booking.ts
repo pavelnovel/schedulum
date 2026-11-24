@@ -35,7 +35,6 @@ export type Deps = {
   calendar: Calendar;
   secret: string;
   publicUrl: string;
-  advertisingInviteEmail?: string;
   now?: () => Date;
   notify?: (text: string) => Promise<void>;
 };
@@ -131,13 +130,11 @@ export async function book(deps: Deps, req: BookingRequest): Promise<Confirmatio
     );
   }
 
-  const id = newEventId();
+  const isAdvertising = route?.id === advertising.route.id;
+  const id = newEventId(isAdvertising);
   const manageUrl = `${deps.publicUrl}/manage/${await signId(id, deps.secret)}`;
   const end = new Date(start.getTime() + minutes * MINUTE);
   const names = `${name} × ${host.firstName}`;
-  const isAdvertising = route?.id === advertising.route.id;
-  const inviteEmail = isAdvertising ? deps.advertisingInviteEmail?.trim() : undefined;
-  const hostInviteEmail = inviteEmail && inviteEmail.toLowerCase() !== email.toLowerCase() ? inviteEmail : undefined;
 
   const booking = await deps.calendar.create({
     id,
@@ -148,7 +145,6 @@ export async function book(deps: Deps, req: BookingRequest): Promise<Confirmatio
     routeId: route?.id,
     guestName: name,
     guestEmail: email,
-    hostInviteEmail,
     guestKey: key,
   });
 

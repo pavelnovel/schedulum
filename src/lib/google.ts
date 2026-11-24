@@ -117,11 +117,6 @@ export function googleCalendar(creds: GoogleCredentials, fetcher: typeof fetch =
     },
 
     async create(booking: NewBooking) {
-      const attendees: NonNullable<GoogleEvent['attendees']> = [
-        { email: booking.guestEmail, displayName: booking.guestName },
-      ];
-      if (booking.hostInviteEmail) attendees.push({ email: booking.hostInviteEmail });
-
       const event = await call<GoogleEvent>(
         'POST',
         '/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all',
@@ -131,7 +126,7 @@ export function googleCalendar(creds: GoogleCredentials, fetcher: typeof fetch =
           description: booking.description,
           start: { dateTime: booking.start.toISOString() },
           end: { dateTime: booking.end.toISOString() },
-          attendees,
+          attendees: [{ email: booking.guestEmail, displayName: booking.guestName }],
           conferenceData: {
             createRequest: { requestId: booking.id, conferenceSolutionKey: { type: 'hangoutsMeet' } },
           },
@@ -141,7 +136,6 @@ export function googleCalendar(creds: GoogleCredentials, fetcher: typeof fetch =
               schedulum: '1',
               ...(booking.routeId && { route: booking.routeId }),
               guest: booking.guestKey,
-              ...(booking.hostInviteEmail && { hostInviteEmail: booking.hostInviteEmail }),
             },
           },
         }
@@ -183,6 +177,7 @@ export function googleCalendar(creds: GoogleCredentials, fetcher: typeof fetch =
 function toBooking(event: GoogleEvent): Booking | null {
   if (!event.start?.dateTime || !event.end?.dateTime) return null;
   const properties = event.extendedProperties?.private;
+  // Bookings made before the work calendar was connected may also invite the host’s work address.
   const hostInviteEmail = properties?.hostInviteEmail?.toLowerCase();
   const guest = event.attendees?.find(
     (a) => !a.self && !a.organizer && (!hostInviteEmail || a.email?.toLowerCase() !== hostInviteEmail)

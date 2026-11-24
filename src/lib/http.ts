@@ -16,7 +16,6 @@ export function depsFrom(locals: App.Locals, request: Request): Deps {
     calendar: calendarFor(env),
     secret: signingSecret(env),
     publicUrl: (env.PUBLIC_URL ?? new URL(request.url).origin).replace(/\/$/, ''),
-    advertisingInviteEmail: env.ADVERTISING_INVITE_EMAIL,
     notify: notifier(env),
   };
 }

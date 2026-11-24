@@ -184,10 +184,12 @@ The two keys work only as a pair. With the secret set, a missing site key or a
 key from another widget makes every booking fail with "The spam check didn't
 go through".
 
-### Optional: a message when someone books
+### Spoiled NYC advertising organizer
 
-To invite a work address to spoiled NYC advertising meetings, set the Worker secret
-`ADVERTISING_INVITE_EMAIL` to that address. Google sends calendar invites and updates to both attendees.
+Set `GOOGLE_ACCOUNT` to the work email and run `npm run connect-google -- --advertising` to connect its Google Calendar.
+After approving Calendar access, follow the printed commands to upload the three `ADVERTISING_GOOGLE_` secrets.
+
+### Optional: a message when someone books
 
 Google doesn't notify you about events that Schedulum creates on your behalf.
 To get a one-line message for every booking, reschedule, and cancellation, set

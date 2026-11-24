@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { advertising, meeting, minutesFor, routes, type Route } from '../src/config';
 import { book, BookingError, cancel, listSlots, lookup, MAX_UPCOMING_PER_GUEST, reschedule, type Deps } from '../src/lib/booking';
-import type { Calendar } from '../src/lib/calendar';
+import { withAdvertisingCalendar, type Calendar } from '../src/lib/calendar';
 import { fakeCalendar } from '../src/lib/fake';
+import { newEventId, signId } from '../src/lib/tokens';
 import { GET as slotsApi } from '../src/pages/api/slots';
 
 const SECRET = 'test-secret-that-is-at-least-32-characters-long';
@@ -61,22 +62,57 @@ describe('book', () => {
     expect(summary).toBe('Ada Lovelace × Pavel');
   });
 
-  it.each([
-    [advertising.route.id, guest.email, 'host@work.example'],
-    [advertising.route.id, 'HOST@work.example', undefined],
-    [route.id, guest.email, undefined],
-  ])('routes the additional invitation for %s and %s', async (routeId, email, expected) => {
-    deps.advertisingInviteEmail = 'host@work.example';
-    const create = calendar.create.bind(calendar);
-    let hostInviteEmail: string | undefined;
-    calendar.create = (booking) => {
-      hostInviteEmail = booking.hostInviteEmail;
-      return create(booking);
-    };
+  it('creates, reschedules, and cancels new Spoiled bookings on the work calendar', async () => {
+    const work = fakeCalendar('America/New_York');
+    deps.calendar = withAdvertisingCalendar(calendar, work);
+    const start = await firstSlot();
+    const result = await book(deps, { routeId: advertising.route.id, start, ...guest });
+    const token = result.manageUrl.split('/manage/')[1];
+    const { booking } = await lookup(deps, token);
 
-    await book(deps, { ...guest, routeId, email, start: await firstSlot() });
+    expect(booking.id).toMatch(/^s[0-9a-v]{26}$/);
+    expect(await work.get(booking.id)).toMatchObject({ guestEmail: guest.email });
+    expect(await calendar.get(booking.id)).toBeNull();
+    expect((await listSlots(deps, meeting.minutes)).map((slot) => slot.toISOString())).not.toContain(start);
 
-    expect(hostInviteEmail).toBe(expected);
+    const newStart = (await listSlots(deps, meeting.minutes, booking))[6];
+    await reschedule(deps, token, newStart.toISOString());
+    expect((await work.get(booking.id))?.start).toEqual(newStart);
+    await cancel(deps, token);
+    expect((await work.get(booking.id))?.cancelled).toBe(true);
+  });
+
+  it('uses the personal calendar to manage a Spoiled event created before the migration', async () => {
+    const work = fakeCalendar('America/New_York');
+    deps.calendar = withAdvertisingCalendar(calendar, work);
+    const start = new Date(await firstSlot());
+    const id = newEventId();
+    await calendar.create({
+      id, start, end: new Date(start.getTime() + 30 * 60_000),
+      summary: 'Existing booking', description: '', routeId: advertising.route.id,
+      guestName: guest.name, guestEmail: guest.email, guestKey: 'existing-key',
+    });
+    const token = await signId(id, SECRET);
+
+    expect((await lookup(deps, token)).booking.id).toBe(id);
+    await cancel(deps, token);
+    expect((await calendar.get(id))?.cancelled).toBe(true);
+  });
+
+  it('refuses a new Spoiled booking when the work organizer is unavailable', async () => {
+    deps.calendar = withAdvertisingCalendar(calendar);
+    const start = await firstSlot();
+
+    await expect(book(deps, { routeId: advertising.route.id, start, ...guest })).rejects.toMatchObject({ kind: 'config' });
+    expect(await firstSlot()).toBe(start);
+  });
+
+  it('counts the guest’s bookings across both calendars', async () => {
+    deps.calendar = withAdvertisingCalendar(calendar, fakeCalendar('America/New_York'));
+    await book(deps, { routeId: advertising.route.id, start: await firstSlot(), ...guest });
+    await book(deps, { routeId: route.id, start: await firstSlot(), ...guest });
+
+    await expectFailure(book(deps, { routeId: advertising.route.id, start: await firstSlot(), ...guest }), 'too_many');
   });
 
   it('removes a booked slot from availability', async () => {

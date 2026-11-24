@@ -4,6 +4,7 @@
  * development fake both live below it.
  */
 import type { Interval } from './availability';
+import { isAdvertisingEventId } from './tokens';
 
 export type Booking = {
   id: string;
@@ -26,8 +27,6 @@ export type NewBooking = {
   routeId?: string;
   guestName: string;
   guestEmail: string;
-  /** Additional invite for the host's work account. */
-  hostInviteEmail?: string;
   /** Keyed hash of the guest's email, so their bookings can be counted without storing the address in a query. */
   guestKey: string;
 };
@@ -53,4 +52,27 @@ export class CalendarError extends Error {
     super(message);
     this.name = 'CalendarError';
   }
+}
+
+export function withAdvertisingCalendar(personal: Calendar, advertising?: Calendar): Calendar {
+  function calendarForEvent(id: string): Calendar {
+    if (!isAdvertisingEventId(id)) return personal;
+    if (!advertising) throw new CalendarError('config', 'The advertising organizer’s calendar is not connected.');
+    return advertising;
+  }
+
+  return {
+    async busy(from, to) {
+      if (!advertising) return personal.busy(from, to);
+      return (await Promise.all([personal.busy(from, to), advertising.busy(from, to)])).flat();
+    },
+    async bookings(from, to, guestKey) {
+      if (!advertising) return personal.bookings(from, to, guestKey);
+      return (await Promise.all([personal.bookings(from, to, guestKey), advertising.bookings(from, to, guestKey)])).flat();
+    },
+    create: async (booking) => calendarForEvent(booking.id).create(booking),
+    get: async (id) => calendarForEvent(id).get(id),
+    move: async (id, start, end) => calendarForEvent(id).move(id, start, end),
+    cancel: async (id) => calendarForEvent(id).cancel(id),
+  };
 }

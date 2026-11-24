@@ -4,7 +4,7 @@
  * `.dev.vars` locally.
  */
 import { availability } from '../config';
-import { CalendarError, type Calendar } from './calendar';
+import { CalendarError, withAdvertisingCalendar, type Calendar } from './calendar';
 import { fakeCalendar } from './fake';
 import { googleCalendar } from './google';
 import { fakeMailer, gmailMailer, type Mailer } from './note';
@@ -20,8 +20,10 @@ export type Env = {
   SIGNING_SECRET?: string;
   /** Origin used in manage links, e.g. `https://meet.pavelnovel.com`. */
   PUBLIC_URL?: string;
-  /** Work address invited to spoiled NYC advertising bookings. */
-  ADVERTISING_INVITE_EMAIL?: string;
+  /** OAuth credentials for the Google account that organizes spoiled NYC advertising meetings. */
+  ADVERTISING_GOOGLE_CLIENT_ID?: string;
+  ADVERTISING_GOOGLE_CLIENT_SECRET?: string;
+  ADVERTISING_GOOGLE_REFRESH_TOKEN?: string;
   /** Optional: POSTed `{ text }` on every booking, reschedule, and cancellation. */
   NOTIFY_WEBHOOK_URL?: string;
   /** Cloudflare Turnstile secret. When set, every new booking must pass the spam check. */
@@ -33,10 +35,14 @@ export type Env = {
 };
 
 let fake: Calendar | undefined;
+let fakeAdvertising: Calendar | undefined;
 let fakeMail: ReturnType<typeof fakeMailer> | undefined;
 
 export function calendarFor(env: Env): Calendar {
-  const calendar = env.CALENDAR_MODE === 'fake' ? (fake ??= fakeCalendar(availability.timezone)) : google(env);
+  const isFake = env.CALENDAR_MODE === 'fake';
+  const personal = isFake ? (fake ??= fakeCalendar(availability.timezone)) : google(env);
+  const advertising = isFake ? (fakeAdvertising ??= fakeCalendar(availability.timezone)) : googleAdvertising(env);
+  const calendar = withAdvertisingCalendar(personal, advertising);
   const store = syncStore(env);
   return store ? withSyncedBusy(calendar, store) : calendar;
 }
@@ -62,6 +68,16 @@ function google(env: Env): Calendar {
       .map((s) => s.trim())
       .filter(Boolean),
   });
+}
+
+function googleAdvertising(env: Env): Calendar | undefined {
+  const {
+    ADVERTISING_GOOGLE_CLIENT_ID: clientId,
+    ADVERTISING_GOOGLE_CLIENT_SECRET: clientSecret,
+    ADVERTISING_GOOGLE_REFRESH_TOKEN: refreshToken,
+  } = env;
+  if (!clientId || !clientSecret || !refreshToken) return undefined;
+  return googleCalendar({ clientId, clientSecret, refreshToken, busyCalendars: ['primary'] });
 }
 
 export function signingSecret(env: Env): string {
