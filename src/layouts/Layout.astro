@@ -63,6 +63,10 @@ const icon = spoiled ? 'https://spoilednyc.com/favicon/icon-32x32.png' : '/favic
     {/* Resolve the theme before first paint so there is no flash. */}
     <script is:inline>
       (function () {
+        if (document.documentElement.dataset.brand === 'spoiled' && window.parent !== window) {
+          document.documentElement.setAttribute('data-embedded', '');
+          return;
+        }
         try {
           var stored = localStorage.getItem('theme');
           var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -81,7 +85,7 @@ const icon = spoiled ? 'https://spoilednyc.com/favicon/icon-32x32.png' : '/favic
     >
       Skip to content
     </a>
-    <header class="sheet flex items-center justify-between pt-6 sm:pt-8">
+    <header class="site-header sheet flex items-center justify-between pt-6 sm:pt-8">
       <a
         href={brand.site}
         class="group inline-flex min-h-[44px] items-center gap-2.5 rounded-[6px] text-[0.875rem] font-medium text-muted transition-colors hover:text-text"
@@ -92,8 +96,21 @@ const icon = spoiled ? 'https://spoilednyc.com/favicon/icon-32x32.png' : '/favic
       <ThemeToggle />
     </header>
 
-    <main id="main" class="pb-24 pt-10 sm:pt-16">
+    <main id="main" class="site-main pb-24 pt-10 sm:pt-16">
       <slot />
     </main>
   </body>
 </html>
+
+<script>
+  const main = document.getElementById('main');
+  if (main && document.documentElement.hasAttribute('data-embedded')) {
+    const reportHeight = () => {
+      window.parent.postMessage({ type: 'schedulum:height', height: main.getBoundingClientRect().height }, '*');
+    };
+    new ResizeObserver(reportHeight).observe(main);
+    window.addEventListener('message', (event) => {
+      if (event.source === window.parent && event.data?.type === 'schedulum:measure') reportHeight();
+    });
+  }
+</script>

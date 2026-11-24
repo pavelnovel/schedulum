@@ -42,6 +42,9 @@ try {
 // The token in this URL is a capability. Keep it out of caches and referrers.
 Astro.response.headers.set('cache-control', 'no-store');
 Astro.response.headers.set('referrer-policy', 'no-referrer');
+if (spoiled && !import.meta.env.DEV) {
+  Astro.response.headers.set('content-security-policy', "frame-ancestors 'self' https://spoilednyc.com https://www.spoilednyc.com https://staging.spoilednyc.com");
+}
 ---
 
 <Layout title={spoiled ? advertising.route.label : `Your conversation with ${host.firstName}`} robots="noindex, nofollow" path="/manage/" spoiled={spoiled}>

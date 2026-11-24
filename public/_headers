@@ -1,0 +1,2 @@
+/spoiled-nyc
+  Content-Security-Policy: frame-ancestors 'self' https://spoilednyc.com https://www.spoilednyc.com https://staging.spoilednyc.com

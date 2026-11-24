@@ -97,6 +97,30 @@
   }
 }
 
+[data-embedded] .site-header,
+[data-embedded] .rail-write,
+[data-embedded] .pane-write {
+  display: none;
+}
+
+[data-embedded] .site-main {
+  padding-top: 0;
+  padding-bottom: 1.25rem;
+}
+
+[data-embedded] .site-main > .booker > .sheet {
+  max-width: none;
+  padding-inline: 3px;
+}
+
+[data-embedded] .rail-title {
+  @apply sr-only;
+}
+
+[data-embedded] .rail-lede:first-of-type {
+  margin-top: 0;
+}
+
 @layer components {
   .doc {
     @apply mx-auto w-full max-w-doc px-4 sm:px-6;
