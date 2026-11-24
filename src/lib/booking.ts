@@ -3,7 +3,7 @@
  * underneath. Every write re-derives availability from the calendar first:
  * a slot the visitor saw a minute ago is only bookable if it is still free.
  */
-import { availability, findRoute, host, meeting, minutesFor, type Route } from '../config';
+import { advertising, availability, findRoute, host, meeting, minutesFor, type Route } from '../config';
 import { computeSlots, subtract, type Interval } from './availability';
 import type { Booking, Calendar } from './calendar';
 import { guestKey, newEventId, signId, verifyToken } from './tokens';
@@ -133,13 +133,13 @@ export async function book(deps: Deps, req: BookingRequest): Promise<Confirmatio
   const id = newEventId();
   const manageUrl = `${deps.publicUrl}/manage/${await signId(id, deps.secret)}`;
   const end = new Date(start.getTime() + minutes * MINUTE);
+  const names = `${name} × ${host.firstName}`;
 
   const booking = await deps.calendar.create({
     id,
     start,
     end,
-    // The topic goes in the description; the title stays just the two names.
-    summary: `${name} × ${host.firstName}`,
+    summary: route?.id === advertising.route.id ? `${route.label} · ${names}` : names,
     description: describe(route, name, note, manageUrl, timeZone),
     routeId: route?.id,
     guestName: name,

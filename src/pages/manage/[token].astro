@@ -1,7 +1,7 @@
 ---
 import Booker, { type ManageBoot } from '../../components/Booker.astro';
 import Layout from '../../layouts/Layout.astro';
-import { host } from '../../config';
+import { advertising, host } from '../../config';
 import { BookingError, lengthOf, lookup } from '../../lib/booking';
 import { depsFrom } from '../../lib/http';
 
@@ -10,9 +10,11 @@ export const prerender = false;
 const token = Astro.params.token ?? '';
 let manage: ManageBoot | undefined;
 let problem: string | undefined;
+let spoiled = false;
 
 try {
   const { booking, label } = await lookup(depsFrom(Astro.locals, Astro.request), token);
+  spoiled = booking.routeId === advertising.route.id;
   if (booking.start.getTime() <= Date.now()) {
     problem = 'This conversation has already happened, so it can’t be changed here.';
   } else {
@@ -42,7 +44,7 @@ Astro.response.headers.set('cache-control', 'no-store');
 Astro.response.headers.set('referrer-policy', 'no-referrer');
 ---
 
-<Layout title={`Your conversation with ${host.firstName}`} robots="noindex, nofollow" path="/manage/">
+<Layout title={spoiled ? advertising.route.label : `Your conversation with ${host.firstName}`} robots="noindex, nofollow" path="/manage/" spoiled={spoiled}>
   {
     manage ? (
       <Booker mode="manage" manage={manage} />
@@ -51,7 +53,7 @@ Astro.response.headers.set('referrer-policy', 'no-referrer');
         <h1 class="doc-h1">Nothing to change here</h1>
         <p class="mt-3 text-muted">{problem}</p>
         <p class="mt-6">
-          <a class="btn" href="/">Book a new time</a>
+          <a class="btn" href={spoiled ? `/${advertising.route.id}` : '/'}>Book a new time</a>
         </p>
       </section>
     )

@@ -1,0 +1,9 @@
+---
+import Booker from '../components/Booker.astro';
+import Layout from '../layouts/Layout.astro';
+import { advertising } from '../config';
+---
+
+<Layout title={advertising.title} description={advertising.route.response} path={`/${advertising.route.id}`} spoiled>
+  <Booker mode="book" initialRoute={advertising.route.id} />
+</Layout>

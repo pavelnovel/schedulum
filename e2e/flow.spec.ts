@@ -103,6 +103,37 @@ test('book with a topic, which sharpens the question and travels with the bookin
   await expect(page.getByRole('heading', { name: 'Cancelled' })).toBeVisible();
 });
 
+test('Spoiled advertisers book on the shared calendar with a fixed meeting type', async ({ page }) => {
+  await page.goto('/spoiled-nyc');
+  await expect(page.getByRole('heading', { name: 'Book a meeting with spoiled NYC' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'spoiled NYC', exact: true })).toHaveAttribute('href', 'https://spoilednyc.com/advertise');
+  await expect(page.getByRole('link', { name: 'advertise@spoiledmedia.com' })).toBeVisible();
+  await expect(page.locator('[data-topic], [data-topic-select]')).toHaveCount(0);
+
+  await pickFirstTime(page);
+  await page.getByLabel('Name', { exact: true }).fill('Ada Lovelace');
+  await page.getByLabel('Email', { exact: true }).fill(unique());
+  await page.getByLabel(/What are you planning for your brand/).fill('A restaurant opening.');
+
+  const [request] = await Promise.all([
+    page.waitForRequest((r) => r.url().endsWith('/api/book')),
+    page.getByRole('button', { name: 'Book this time' }).click(),
+  ]);
+  const booking = request.postDataJSON();
+  expect(booking).toMatchObject({ routeId: 'spoiled-nyc', note: 'A restaurant opening.' });
+  await expect(page.locator('[data-done-facts]')).toContainText('spoiled NYC advertising');
+  const personalSlots = await page.request.get('/api/slots');
+  expect(personalSlots.ok()).toBe(true);
+  expect((await personalSlots.json()).slots).not.toContain(booking.start);
+
+  const manage = new URL((await page.getByRole('link', { name: 'Reschedule or cancel' }).getAttribute('href'))!).pathname;
+  await page.goto(manage);
+  await expect(page.locator('[data-overview-facts]')).toContainText('spoiled NYC advertising');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancel conversation' }).click();
+  await expect(page.getByRole('link', { name: 'pick a new time' })).toHaveAttribute('href', '/spoiled-nyc');
+});
+
 test('on a wide screen, landing to the details form is one click', async ({ page }) => {
   test.skip(!wide());
   await page.goto('/');

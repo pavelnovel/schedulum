@@ -45,6 +45,10 @@ function init(root: HTMLElement) {
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const $$ = <T extends Element = HTMLElement>(sel: string) => [...root.querySelectorAll<T>(sel)];
   const field = (sel: string) => root.querySelector<HTMLInputElement | HTMLTextAreaElement>(sel);
+  const errorMessage = (error: ApiError | undefined, fallback: string) =>
+    error?.code === 'unavailable'
+      ? `Booking is offline for a moment. You can email ${boot.host.email} instead.`
+      : error?.message ?? fallback;
 
   // A name and email typed in the booking form are there in the note form, and back.
   function carry(from: 'f' | 'n', to: 'f' | 'n') {
@@ -182,7 +186,7 @@ function init(root: HTMLElement) {
       if (res.visitor && !state.visitor) useVisitor(res.visitor);
     } else {
       state.slots = null;
-      state.slotsError = res.error?.message ?? 'Couldn’t load times.';
+      state.slotsError = errorMessage(res.error, 'Couldn’t load times.');
     }
     autoSelect();
     renderAll();
@@ -471,7 +475,7 @@ function init(root: HTMLElement) {
   const noteLine = root.querySelector<HTMLElement>('[data-note-line]');
   const correction = $('[data-fit-correction]');
   const useZone = $<HTMLButtonElement>('[data-fit-use]');
-  const canNote = boot.mode === 'book';
+  const canNote = notePrimary !== null;
   let suggested: string | null = null;
 
   function renderFit() {
@@ -915,7 +919,7 @@ function init(root: HTMLElement) {
         announce(json.error.message);
         return null;
       }
-      formError(json.error?.message ?? 'Something went wrong. Try again.');
+      formError(errorMessage(json.error, 'Something went wrong. Try again.'));
     } catch {
       formError(`Couldn’t reach the server. Check your connection, or email ${boot.host.email}.`);
     } finally {
@@ -1146,7 +1150,7 @@ function init(root: HTMLElement) {
               announce('Cancelled.');
               return;
             }
-            overviewError.textContent = json.error?.message ?? 'Something went wrong.';
+            overviewError.textContent = errorMessage(json.error, 'Something went wrong.');
           } catch {
             overviewError.textContent = `Couldn’t reach the server. Email ${boot.host.email} instead.`;
           }

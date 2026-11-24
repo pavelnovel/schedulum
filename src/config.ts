@@ -93,6 +93,20 @@ export const opening = {
   topics: 'Potential topics',
 };
 
+export const advertising = {
+  name: 'spoiled NYC',
+  site: 'https://spoilednyc.com/advertise',
+  email: 'advertise@spoiledmedia.com',
+  title: 'Book a meeting with spoiled NYC',
+  route: {
+    id: 'spoiled-nyc',
+    label: 'spoiled NYC advertising',
+    response: 'Tell us what you’re planning, who you want to reach, and when. We’ll talk through what could work for your campaign.',
+    prompt: 'What are you planning for your brand?',
+    placeholder: 'Your brand, who you want to reach, and any dates you have in mind.',
+  } satisfies Route,
+};
+
 export const routes: Route[] = [
   {
     id: 'ai-systems',
@@ -129,6 +143,7 @@ export const routes: Route[] = [
 ];
 
 export function findRoute(id: string | null | undefined): Route | undefined {
+  if (id === advertising.route.id) return advertising.route;
   return routes.find((route) => route.id === id);
 }
 

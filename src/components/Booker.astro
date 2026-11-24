@@ -12,7 +12,7 @@
  * calendar. Without JavaScript the topics still read in full and offer email
  * and LinkedIn.
  */
-import { availability, host, meeting, minutesFor, opening, routes, visitorHours } from '../config';
+import { advertising, availability, findRoute, host, meeting, minutesFor, opening, routes, visitorHours } from '../config';
 import Sketch from './Sketch.astro';
 
 export type ManageBoot = {
@@ -32,10 +32,13 @@ interface Props {
 }
 
 const { mode, initialRoute, manage } = Astro.props;
+const spoiled = (manage?.routeId ?? initialRoute) === advertising.route.id;
+const email = spoiled ? advertising.email : host.email;
+const linkedin = spoiled ? undefined : host.linkedin;
 // A topic's own page (/speaking) renders with that topic already picked.
-const initial = mode === 'book' ? routes.find((r) => r.id === initialRoute) : undefined;
+const initial = mode === 'book' ? findRoute(initialRoute) : undefined;
 const firstStep = mode === 'manage' ? 'overview' : 'time';
-const manageRoute = manage ? routes.find((r) => r.id === manage.routeId) : undefined;
+const manageRoute = findRoute(manage?.routeId);
 // Said only for a topic whose length differs from every other conversation's.
 const ownLength = (route: (typeof routes)[number]) => minutesFor(route) !== meeting.minutes;
 
@@ -45,7 +48,7 @@ const boot = {
   hostTimeZone: availability.timezone,
   visitorHours,
   meeting,
-  routes: routes.map((route) => ({
+  routes: (spoiled ? [advertising.route] : routes).map((route) => ({
     id: route.id,
     label: route.label,
     response: route.response,
@@ -54,7 +57,7 @@ const boot = {
     placeholder: route.placeholder,
   })),
   manage: manage ?? null,
-  host: { firstName: host.firstName, email: host.email },
+  host: { firstName: host.firstName, email },
   // Set in .env.production. Unset in development, which skips the spam check.
   turnstileSiteKey: import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || null,
 };
@@ -121,47 +124,55 @@ const icon = {
             <div class="rail" data-rail>
               <h1 id="rail-title" class="rail-title" tabindex="-1">
                 <Sketch type="underline" seed={7} tone="faint" delay={180}>
-                  {opening.title}
+                  {spoiled ? advertising.title : opening.title}
                 </Sketch>
               </h1>
-              <p class="rail-lede">{opening.lede}</p>
-              <p class="rail-caption" id="topics-label">{opening.topics}</p>
-              <div class="rail-list" role="group" aria-labelledby="topics-label" data-topics>
-                {routes.map((route) => (
-                  <div class="rail-row">
-                    <button
-                      type="button"
-                      class="rail-pick"
-                      aria-pressed={initial?.id === route.id ? 'true' : 'false'}
-                      aria-describedby={`rail-${route.id}`}
-                      data-topic={route.id}
-                    >
-                      <span class="rail-label">{route.label}</span>
-                      {ownLength(route) && <span class="stamp rail-stamp">{minutesFor(route)} min</span>}
-                      <svg class="rail-check" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="m5 12.5 4.5 4.5L19 7.5" />
-                      </svg>
-                    </button>
-                    <p class="rail-detail" id={`rail-${route.id}`}>
-                      {route.response}
-                    </p>
+              {spoiled ? (
+                <>
+                  <p class="rail-lede">A {minutesFor(initial)}-minute Google Meet with {host.name}, founder of {advertising.name}.</p>
+                  <p class="rail-lede">{advertising.route.response}</p>
+                </>
+              ) : (
+                <>
+                  <p class="rail-lede">{opening.lede}</p>
+                  <p class="rail-caption" id="topics-label">{opening.topics}</p>
+                  <div class="rail-list" role="group" aria-labelledby="topics-label" data-topics>
+                    {routes.map((route) => (
+                      <div class="rail-row">
+                        <button
+                          type="button"
+                          class="rail-pick"
+                          aria-pressed={initial?.id === route.id ? 'true' : 'false'}
+                          aria-describedby={`rail-${route.id}`}
+                          data-topic={route.id}
+                        >
+                          <span class="rail-label">{route.label}</span>
+                          {ownLength(route) && <span class="stamp rail-stamp">{minutesFor(route)} min</span>}
+                          <svg class="rail-check" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m5 12.5 4.5 4.5L19 7.5" />
+                          </svg>
+                        </button>
+                        <p class="rail-detail" id={`rail-${route.id}`}>
+                          {route.response}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <noscript>
-                {/* Without the script the toggles would do nothing, so the topics are plain text instead. */}
-                <ul class="rail-static" role="list">
-                  {routes.map((route) => (
-                    <li class="rail-row">
-                      <p class="rail-label">{route.label}</p>
-                      <p class="rail-detail">{route.response}</p>
-                    </li>
-                  ))}
-                </ul>
-              </noscript>
+                  <noscript>
+                    {/* Without the script the toggles would do nothing, so the topics are plain text instead. */}
+                    <ul class="rail-static" role="list">
+                      {routes.map((route) => (
+                        <li class="rail-row">
+                          <p class="rail-label">{route.label}</p>
+                          <p class="rail-detail">{route.response}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </noscript>
+                </>
+              )}
               <p class="rail-write">
-                Rather write? Email <a class="link" href={`mailto:${host.email}`}>{host.email}</a> or find me on
-                <a class="link" href={host.linkedin}>LinkedIn</a>.
+                Rather write? Email <a class="link" href={`mailto:${email}`}>{email}</a>{linkedin && <> or find me on <a class="link" href={linkedin}>LinkedIn</a></>}.
               </p>
             </div>
           )
@@ -216,7 +227,7 @@ const icon = {
             </p>
             <div class="fit-actions" data-fit-actions hidden>
               <button type="button" class="link" data-hours-toggle hidden></button>
-              {mode === 'book' && <button type="button" class="btn" data-open-note data-note-primary hidden>Send me a note</button>}
+              {mode === 'book' && !spoiled && <button type="button" class="btn" data-open-note data-note-primary hidden>Send me a note</button>}
             </div>
             <p class="fit-correction" data-fit-correction hidden>
               <span data-fit-suggest></span>
@@ -257,7 +268,7 @@ const icon = {
         </div>
 
         {
-          mode === 'book' && (
+          mode === 'book' && !spoiled && (
             <p class="note-line" data-note-line hidden>
               None of these work?
               <button type="button" class="link" data-open-note>
@@ -271,8 +282,7 @@ const icon = {
           mode === 'book' && (
             // A narrow screen has no rail, so the other ways to reach Pavel go here.
             <p class="pane-write">
-              Rather write? Email <a class="link" href={`mailto:${host.email}`}>{host.email}</a> or find me on
-              <a class="link" href={host.linkedin}>LinkedIn</a>.
+              Rather write? Email <a class="link" href={`mailto:${email}`}>{email}</a>{linkedin && <> or find me on <a class="link" href={linkedin}>LinkedIn</a></>}.
             </p>
           )
         }
@@ -301,7 +311,7 @@ const icon = {
                 <p class="mt-1.5 text-[0.8125rem] text-muted">The calendar invite and Meet link go here.</p>
               </div>
               {/* Narrow screens only: on a wide one the rail beside the form is this choice. */}
-              <div class="topic-field">
+              {!spoiled && <div class="topic-field">
                 <label class="field-label" for="f-topic">
                   Topic <span class="font-normal text-muted">Optional</span>
                 </label>
@@ -316,7 +326,7 @@ const icon = {
                 <p class="topic-hint" data-topic-hint hidden={!initial}>
                   {initial?.response}
                 </p>
-              </div>
+              </div>}
               <div>
                 <label class="field-label" for="f-note">
                   <span data-prompt>{initial?.prompt ?? meeting.prompt}</span>
@@ -353,7 +363,7 @@ const icon = {
       }
 
       {
-        mode === 'book' && (
+        mode === 'book' && !spoiled && (
           // For a visitor none of the times suit: a note to Pavel's inbox instead of a booking.
           <form class="pane" data-pane="note" hidden novalidate>
             <h2 class="pane-title" tabindex="-1">Send me a note</h2>
@@ -396,7 +406,7 @@ const icon = {
       }
 
       {
-        mode === 'book' && (
+        mode === 'book' && !spoiled && (
           <div class="pane" data-pane="noted" hidden>
             <h2 class="pane-title" tabindex="-1">
               Sent
@@ -446,7 +456,8 @@ const icon = {
   <section class="step doc" data-step-panel="cancelled" hidden aria-labelledby="cancelled-title">
     <h1 id="cancelled-title" class="doc-h1" tabindex="-1">Cancelled</h1>
     <p class="mt-3 text-muted">
-      Google Calendar is letting you both know. If you want to talk another time, <a class="link" href="/">pick a new time</a>.
+      Google Calendar is letting you both know. If you want to talk another time,
+      <a class="link" href={spoiled ? `/${advertising.route.id}` : '/'}>pick a new time</a>.
     </p>
   </section>
 
@@ -474,8 +485,7 @@ const icon = {
     </style>
     <div class="sheet mt-8">
       <p class="text-muted">
-        Picking a time needs JavaScript. You can email <a class="link" href={`mailto:${host.email}`}>{host.email}</a> or find me
-        on <a class="link" href={host.linkedin}>LinkedIn</a> instead.
+        Picking a time needs JavaScript. You can email <a class="link" href={`mailto:${email}`}>{email}</a>{linkedin && <> or find me on <a class="link" href={linkedin}>LinkedIn</a></>} instead.
       </p>
     </div>
   </noscript>
