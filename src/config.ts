@@ -101,7 +101,7 @@ export const advertising = {
   route: {
     id: 'spoiled-nyc',
     label: 'spoiled NYC advertising',
-    response: "Tell us where you're planning, who you want to reach, and when. We'll talk through what could work for your campaign.",
+    response: 'Opening a new spot, putting on an event, or launching a product? We’ll talk about who you want to reach in New York and when you want to get the word out. From there, we’ll sketch what a campaign with Spoiled NYC could look like.',
     prompt: 'What are you planning for your brand?',
     placeholder: 'Your brand, who you want to reach, and any dates you have in mind.',
   } satisfies Route,
