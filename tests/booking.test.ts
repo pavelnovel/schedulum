@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { meeting, minutesFor, routes, type Route } from '../src/config';
+import { advertising, meeting, minutesFor, routes, type Route } from '../src/config';
 import { book, BookingError, cancel, listSlots, lookup, MAX_UPCOMING_PER_GUEST, reschedule, type Deps } from '../src/lib/booking';
 import type { Calendar } from '../src/lib/calendar';
 import { fakeCalendar } from '../src/lib/fake';
@@ -59,6 +59,24 @@ describe('book', () => {
     calendar.create = (b) => ((summary = b.summary), create(b));
     await book(deps, { routeId: route.id, start: await firstSlot(), ...guest });
     expect(summary).toBe('Ada Lovelace × Pavel');
+  });
+
+  it.each([
+    [advertising.route.id, guest.email, 'host@work.example'],
+    [advertising.route.id, 'HOST@work.example', undefined],
+    [route.id, guest.email, undefined],
+  ])('routes the additional invitation for %s and %s', async (routeId, email, expected) => {
+    deps.advertisingInviteEmail = 'host@work.example';
+    const create = calendar.create.bind(calendar);
+    let hostInviteEmail: string | undefined;
+    calendar.create = (booking) => {
+      hostInviteEmail = booking.hostInviteEmail;
+      return create(booking);
+    };
+
+    await book(deps, { ...guest, routeId, email, start: await firstSlot() });
+
+    expect(hostInviteEmail).toBe(expected);
   });
 
   it('removes a booked slot from availability', async () => {

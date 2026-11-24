@@ -117,6 +117,11 @@ export function googleCalendar(creds: GoogleCredentials, fetcher: typeof fetch =
     },
 
     async create(booking: NewBooking) {
+      const attendees: NonNullable<GoogleEvent['attendees']> = [
+        { email: booking.guestEmail, displayName: booking.guestName },
+      ];
+      if (booking.hostInviteEmail) attendees.push({ email: booking.hostInviteEmail });
+
       const event = await call<GoogleEvent>(
         'POST',
         '/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all',
@@ -126,13 +131,18 @@ export function googleCalendar(creds: GoogleCredentials, fetcher: typeof fetch =
           description: booking.description,
           start: { dateTime: booking.start.toISOString() },
           end: { dateTime: booking.end.toISOString() },
-          attendees: [{ email: booking.guestEmail, displayName: booking.guestName }],
+          attendees,
           conferenceData: {
             createRequest: { requestId: booking.id, conferenceSolutionKey: { type: 'hangoutsMeet' } },
           },
           guestsCanInviteOthers: true,
           extendedProperties: {
-            private: { schedulum: '1', ...(booking.routeId && { route: booking.routeId }), guest: booking.guestKey },
+            private: {
+              schedulum: '1',
+              ...(booking.routeId && { route: booking.routeId }),
+              guest: booking.guestKey,
+              ...(booking.hostInviteEmail && { hostInviteEmail: booking.hostInviteEmail }),
+            },
           },
         }
       );
@@ -172,12 +182,16 @@ export function googleCalendar(creds: GoogleCredentials, fetcher: typeof fetch =
 
 function toBooking(event: GoogleEvent): Booking | null {
   if (!event.start?.dateTime || !event.end?.dateTime) return null;
-  const guest = event.attendees?.find((a) => !a.self && !a.organizer);
+  const properties = event.extendedProperties?.private;
+  const hostInviteEmail = properties?.hostInviteEmail?.toLowerCase();
+  const guest = event.attendees?.find(
+    (a) => !a.self && !a.organizer && (!hostInviteEmail || a.email?.toLowerCase() !== hostInviteEmail)
+  );
   return {
     id: event.id,
     start: new Date(event.start.dateTime),
     end: new Date(event.end.dateTime),
-    routeId: event.extendedProperties?.private?.route ?? '',
+    routeId: properties?.route ?? '',
     guestName: guest?.displayName ?? '',
     guestEmail: guest?.email ?? '',
     meetUrl: event.hangoutLink,

@@ -26,6 +26,8 @@ export type NewBooking = {
   routeId?: string;
   guestName: string;
   guestEmail: string;
+  /** Additional invite for the host's work account. */
+  hostInviteEmail?: string;
   /** Keyed hash of the guest's email, so their bookings can be counted without storing the address in a query. */
   guestKey: string;
 };

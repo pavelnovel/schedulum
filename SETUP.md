@@ -186,6 +186,9 @@ go through".
 
 ### Optional: a message when someone books
 
+To invite a work address to spoiled NYC advertising meetings, set the Worker secret
+`ADVERTISING_INVITE_EMAIL` to that address. Google sends calendar invites and updates to both attendees.
+
 Google doesn't notify you about events that Schedulum creates on your behalf.
 To get a one-line message for every booking, reschedule, and cancellation, set
 `NOTIFY_WEBHOOK_URL` to an endpoint that accepts `{"text": "..."}`, such as a

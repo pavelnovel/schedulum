@@ -72,8 +72,44 @@ describe('googleCalendar', () => {
     expect(calls[0].url).toContain('conferenceDataVersion=1');
     expect(calls[0].url).toContain('sendUpdates=all');
     expect(calls[0].body.conferenceData.createRequest.conferenceSolutionKey.type).toBe('hangoutsMeet');
+    expect(calls[0].body.attendees).toEqual([{ email: 'ada@example.com', displayName: 'Ada' }]);
     expect(calls[0].body.extendedProperties.private).toEqual({ schedulum: '1', route: 'ai-systems', guest: 'k' });
     expect(booking).toMatchObject({ guestEmail: 'ada@example.com', guestName: 'Ada', meetUrl: 'https://meet.google.com/abc-defg-hij' });
+  });
+
+  it('invites the host’s work address while preserving the original guest', async () => {
+    const { fetcher, calls } = fakeGoogle((call) => ({
+      json: {
+        id: call.body.id,
+        start: call.body.start,
+        end: call.body.end,
+        attendees: [
+          { email: 'organizer@example.com', self: true, organizer: true },
+          { email: 'HOST@work.example' },
+          { email: 'ada@example.com', displayName: 'Ada' },
+        ],
+        extendedProperties: call.body.extendedProperties,
+      },
+    }));
+    const booking = await googleCalendar(creds(), fetcher).create({
+      id: 'abc123def456',
+      start: new Date('2026-10-19T14:00:00Z'),
+      end: new Date('2026-10-19T14:30:00Z'),
+      summary: 's',
+      description: 'd',
+      routeId: 'spoiled-nyc',
+      guestName: 'Ada',
+      guestEmail: 'ada@example.com',
+      guestKey: 'k',
+      hostInviteEmail: 'host@work.example',
+    });
+
+    expect(calls[0].url).toContain('sendUpdates=all');
+    expect(calls[0].body.attendees).toEqual([
+      { email: 'ada@example.com', displayName: 'Ada' },
+      { email: 'host@work.example' },
+    ]);
+    expect(booking).toMatchObject({ guestName: 'Ada', guestEmail: 'ada@example.com' });
   });
 
   it('leaves the topic off an event booked without one', async () => {

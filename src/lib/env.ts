@@ -20,6 +20,8 @@ export type Env = {
   SIGNING_SECRET?: string;
   /** Origin used in manage links, e.g. `https://meet.pavelnovel.com`. */
   PUBLIC_URL?: string;
+  /** Work address invited to spoiled NYC advertising bookings. */
+  ADVERTISING_INVITE_EMAIL?: string;
   /** Optional: POSTed `{ text }` on every booking, reschedule, and cancellation. */
   NOTIFY_WEBHOOK_URL?: string;
   /** Cloudflare Turnstile secret. When set, every new booking must pass the spam check. */

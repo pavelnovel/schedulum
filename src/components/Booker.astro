@@ -354,7 +354,7 @@ const icon = {
                 Book this time
               </button>
               <p class="text-[0.8125rem] text-muted">
-                Your name, email, and note go only into {host.firstName}’s calendar.
+                {spoiled ? 'Your name, email, and note are included in the calendar event.' : <>Your name, email, and note go only into {host.firstName}’s calendar.</>}
                 <a class="link" href="/privacy" target={spoiled ? '_blank' : undefined} rel={spoiled ? 'noopener' : undefined}>Privacy</a>
               </p>
             </div>
