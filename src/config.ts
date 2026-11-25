@@ -93,20 +93,50 @@ export const opening = {
   topics: 'Potential topics',
 };
 
-export const advertising = {
+export type SpoiledBookingPage = {
+  name: string;
+  site: string;
+  email: string;
+  title: string;
+  lede: string;
+  route: Route;
+};
+
+export const spoiledFrameAncestors = "frame-ancestors 'self' https://spoilednyc.com https://www.spoilednyc.com https://staging.spoilednyc.com";
+
+export const advertising: SpoiledBookingPage = {
   name: 'spoiled NYC',
-  frameAncestors: "frame-ancestors 'self' https://spoilednyc.com https://www.spoilednyc.com https://staging.spoilednyc.com",
   site: 'https://spoilednyc.com/advertise',
   email: 'advertise@spoiledmedia.com',
   title: 'Book a meeting with spoiled NYC',
+  lede: `A ${meeting.minutes}-minute Google Meet with ${host.name}, co-founder of Spoiled NYC.`,
   route: {
     id: 'spoiled-nyc',
     label: 'spoiled NYC advertising',
     response: 'Opening a new spot, putting on an event, or launching a product? We’ll talk about who you want to reach in New York and when you want to get the word out. From there, we’ll sketch what a campaign with Spoiled NYC could look like.',
     prompt: 'What are you planning for your brand?',
     placeholder: 'Your brand, who you want to reach, and any dates you have in mind.',
-  } satisfies Route,
+  },
 };
+
+export const pavelMeeting: SpoiledBookingPage = {
+  name: 'spoiled NYC',
+  site: 'https://spoilednyc.com',
+  email: 'pavel@spoiledmedia.com',
+  title: 'Book a meeting to chat',
+  lede: `A ${meeting.minutes}-minute Google Meet with ${host.name}.`,
+  route: {
+    id: 'spoiled-meeting-pavel',
+    label: 'A chat with Pavel',
+    response: '',
+    prompt: meeting.prompt,
+    placeholder: meeting.placeholder,
+  },
+};
+
+export function spoiledBookingFor(id: unknown): SpoiledBookingPage | undefined {
+  return [advertising, pavelMeeting].find(({ route }) => route.id === id);
+}
 
 export const routes: Route[] = [
   {
@@ -144,8 +174,7 @@ export const routes: Route[] = [
 ];
 
 export function findRoute(id: string | null | undefined): Route | undefined {
-  if (id === advertising.route.id) return advertising.route;
-  return routes.find((route) => route.id === id);
+  return spoiledBookingFor(id)?.route ?? routes.find((route) => route.id === id);
 }
 
 export const minutesFor = (route?: Route) => route?.minutes ?? meeting.minutes;

@@ -2,7 +2,7 @@
  * Shared plumbing for the API routes: building the booking service from the
  * request's bindings, and turning failures into answers a visitor can act on.
  */
-import { advertising, host } from '../config';
+import { host, spoiledBookingFor } from '../config';
 import { BookingError, type Deps } from './booking';
 import { CalendarError } from './calendar';
 import { advertisingEnabled, calendarFor, localBuild, notifier, signingSecret, type Env } from './env';
@@ -14,7 +14,7 @@ export function coordinator(env: Env) {
 }
 
 export function requireEnabledRoute(env: Env, routeId: unknown) {
-  if (routeId === advertising.route.id && !advertisingEnabled(env)) {
+  if (spoiledBookingFor(routeId) && !advertisingEnabled(env)) {
     throw new BookingError('not_found', 'This booking page is unavailable.');
   }
 }

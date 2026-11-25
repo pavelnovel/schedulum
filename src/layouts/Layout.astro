@@ -1,14 +1,14 @@
 ---
 import '../styles/global.css';
 import ThemeToggle from '../components/ThemeToggle.astro';
-import { advertising, host } from '../config';
+import { host, type SpoiledBookingPage } from '../config';
 
 interface Props {
   title: string;
   description?: string;
   path?: string;
   robots?: string;
-  spoiled?: boolean;
+  spoiled?: SpoiledBookingPage;
 }
 
 const {
@@ -16,10 +16,10 @@ const {
   description = `Book a conversation with ${host.name}.`,
   path = '/',
   robots,
-  spoiled = false,
+  spoiled,
 } = Astro.props;
 const canonical = new URL(path, Astro.site ?? 'https://meet.pavelnovel.com').href;
-const brand = spoiled ? advertising : host;
+const brand = spoiled ?? host;
 const icon = spoiled ? 'https://spoilednyc.com/favicon/icon-32x32.png' : '/favicon.svg';
 ---
 

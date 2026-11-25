@@ -1,7 +1,7 @@
 ---
 import Booker, { type ManageBoot } from '../../components/Booker.astro';
 import Layout from '../../layouts/Layout.astro';
-import { advertising, host } from '../../config';
+import { host, spoiledBookingFor, spoiledFrameAncestors, type SpoiledBookingPage } from '../../config';
 import { BookingError } from '../../lib/booking';
 import { coordinator } from '../../lib/http';
 
@@ -10,7 +10,7 @@ export const prerender = false;
 const token = Astro.params.token ?? '';
 let manage: ManageBoot | undefined;
 let problem: string | undefined;
-let spoiled = false;
+let spoiled: SpoiledBookingPage | undefined;
 
 try {
   const response = await coordinator(Astro.locals.env).fetch(Astro.request);
@@ -20,7 +20,7 @@ try {
   }
   if (!response.ok) throw new Error(`Calendar lookup returned ${response.status}`);
   const details = await response.json() as Omit<ManageBoot, 'token'>;
-  spoiled = details.routeId === advertising.route.id;
+  spoiled = spoiledBookingFor(details.routeId);
   if (Date.parse(details.start) <= Date.now()) {
     problem = 'This conversation has already happened, so it can’t be changed here.';
   } else {
@@ -41,11 +41,11 @@ try {
 Astro.response.headers.set('cache-control', 'no-store');
 Astro.response.headers.set('referrer-policy', 'no-referrer');
 if (spoiled && !import.meta.env.DEV) {
-  Astro.response.headers.set('content-security-policy', advertising.frameAncestors);
+  Astro.response.headers.set('content-security-policy', spoiledFrameAncestors);
 }
 ---
 
-<Layout title={spoiled ? advertising.route.label : `Your conversation with ${host.firstName}`} robots="noindex, nofollow" path="/manage/" spoiled={spoiled}>
+<Layout title={spoiled?.route.label ?? `Your conversation with ${host.firstName}`} robots="noindex, nofollow" path="/manage/" spoiled={spoiled}>
   {
     manage ? (
       <Booker mode="manage" manage={manage} />
@@ -54,7 +54,7 @@ if (spoiled && !import.meta.env.DEV) {
         <h1 class="doc-h1">Nothing to change here</h1>
         <p class="mt-3 text-muted">{problem}</p>
         <p class="mt-6">
-          <a class="btn" href={spoiled ? `/${advertising.route.id}` : '/'}>Book a new time</a>
+          <a class="btn" href={spoiled ? `/${spoiled.route.id}` : '/'}>Book a new time</a>
         </p>
       </section>
     )
