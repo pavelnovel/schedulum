@@ -12,7 +12,9 @@
  * and, from there, into Cloudflare with the commands this script prints.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { parseEnv } from 'node:util';
 import { createServer } from 'node:http';
 import { createInterface } from 'node:readline/promises';
 
@@ -29,24 +31,28 @@ const PORT = Number(process.env.PORT ?? 53682);
 const REDIRECT = `http://127.0.0.1:${PORT}/callback`;
 
 function readVars() {
-  if (!existsSync(DEV_VARS)) return {};
-  const vars = {};
-  for (const line of readFileSync(DEV_VARS, 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
-    if (m) vars[m[1]] = m[2];
-  }
-  return vars;
+  return existsSync(DEV_VARS) ? parseEnv(readFileSync(DEV_VARS, 'utf8')) : {};
 }
 
-function writeVars(updates) {
-  let text = existsSync(DEV_VARS) ? readFileSync(DEV_VARS, 'utf8') : '';
+export function writeVars(updates, file = fileURLToPath(DEV_VARS)) {
+  let text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const saved = parseEnv(text);
+  // A first connection is a local demo until the operator explicitly selects Google.
+  if (!['fake', 'google'].includes(saved.CALENDAR_MODE)) updates = { ...updates, CALENDAR_MODE: 'fake' };
+  if (!saved.PUBLIC_URL) updates = { ...updates, PUBLIC_URL: 'http://localhost:4321' };
   for (const [key, value] of Object.entries(updates)) {
     const line = `${key}=${value}`;
-    const re = new RegExp(`^#?\\s*${key}=.*$`, 'm');
-    text = re.test(text) ? text.replace(re, line) : `${text.replace(/\n?$/, '\n')}${line}\n`;
+    const re = new RegExp(`^[ \\t]*${key}[ \\t]*=.*$`, 'gm');
+    text = re.test(text) ? text.replace(re, () => line) : `${text.replace(/\n?$/, '\n')}${line}\n`;
   }
-  writeFileSync(DEV_VARS, text, { mode: 0o600 });
-  chmodSync(DEV_VARS, 0o600);
+  // Replace the inode: an existing example may have been created with mode 0644.
+  const temp = file + '.' + randomBytes(12).toString('hex') + '.tmp';
+  try {
+    writeFileSync(temp, text, { mode: 0o600, flag: 'wx' });
+    renameSync(temp, file);
+  } finally {
+    rmSync(temp, { force: true });
+  }
 }
 
 const b64url = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -73,7 +79,7 @@ async function main() {
     access_type: 'offline',
     // Forces a fresh refresh token even if this client was approved before.
     prompt: 'consent',
-    login_hint: expectedAccount ?? 'pkonopl@gmail.com',
+    ...(expectedAccount && { login_hint: expectedAccount }),
     state,
     code_challenge: b64url(createHash('sha256').update(verifier).digest()),
     code_challenge_method: 'S256',
@@ -151,7 +157,7 @@ async function main() {
   writeVars(updates);
 
   console.log(`\nConnected. Your primary calendar has ${blocks} busy block${blocks === 1 ? '' : 's'} in the next 7 days.`);
-  console.log('Saved to .dev.vars. CALENDAR_MODE is unchanged; set it to google to test locally against the real calendar.');
+  console.log(`Saved to .dev.vars. Local calendar mode: ${readVars().CALENDAR_MODE}.`);
   console.log('\nTo give the deployed site the same access, run:\n');
   const keys = ['CLIENT_ID', 'CLIENT_SECRET', 'REFRESH_TOKEN'].map((key) => prefix + key);
   if (!advertising) keys.push('SIGNING_SECRET');
@@ -161,7 +167,9 @@ async function main() {
   console.log('');
 }
 
-main().catch((err) => {
-  console.error(`\n${err.message}`);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(`\n${err.message}`);
+    process.exitCode = 1;
+  });
+}

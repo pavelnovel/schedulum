@@ -8,7 +8,7 @@ Google account whose calendar takes bookings. Use your own.
 
 Before you start, you need:
 
-- Node.js 22 or later.
+- Node.js 22.23.4 or later.
 - A Google account. Bookings go on its primary calendar, and notes arrive in
   its Gmail inbox.
 - A Cloudflare account. A domain on Cloudflare is optional.
@@ -49,11 +49,13 @@ Before you start, you need:
 
 ## 2. Connect your calendar
 
-Put the client ID and secret in `.dev.vars` as `GOOGLE_CLIENT_ID` and
-`GOOGLE_CLIENT_SECRET`, or paste them when the script asks. Then run:
+Run these commands in your fork. Enter the Google client ID and secret when
+prompted. If you already connected this checkout, the script reuses its saved
+client settings.
 
 ```bash
-npm install
+npm ci
+test -f .dev.vars || (umask 077 && cp .dev.vars.example .dev.vars)
 npm run connect-google
 ```
 
@@ -72,8 +74,9 @@ Tick all three permissions:
   your own inbox, with the visitor as the reply-to. It can't read your mail.
 
 The script checks that it can read your free/busy before it saves anything.
-It writes the credentials and a fresh `SIGNING_SECRET` to `.dev.vars`, which
-git ignores, and it never prints the refresh token.
+It saves the credentials in the gitignored `.dev.vars` file, with read and
+write access only for your user. It generates a signing secret on first
+connection. Reconnecting preserves your signing secret and calendar mode.
 
 To make other calendars on the same account block booking, such as a shared
 family calendar, put their IDs in `BUSY_CALENDARS` in `wrangler.toml`,
@@ -95,8 +98,7 @@ npm run preview   # http://localhost:8787, the Workers runtime
 
 `.dev.vars` starts with `CALENDAR_MODE=fake`: an in-memory calendar with
 made-up busy blocks that's safe to click through. To see your real
-availability, change it to `google`. Production has no `CALENDAR_MODE`, which
-means `google`.
+availability, change it to `google`. The dev server and local preview also default to fake when this setting is missing. A production build defaults to Google.
 
 The spam check is off locally. `npm run dev` has no Turnstile key, and
 `npm run preview` uses Cloudflare's always-pass test key. Neither has the
@@ -108,9 +110,7 @@ npm run preview -- --var TURNSTILE_SECRET_KEY:1x0000000000000000000000000000000A
 ```
 
 > In `google` mode, a booking creates a real event and sends a real
-> invitation, so use your own address as the guest. Manage links point at
-> `PUBLIC_URL`, which is `localhost` in `.dev.vars`, so cancel test bookings
-> from the local site.
+> invitation, so use your own address as the guest. Local demo and preview manage links use the address you opened. Cancel test bookings from that local site.
 
 ## 4. Deploy to Cloudflare
 
@@ -149,14 +149,14 @@ grep '^GOOGLE_REFRESH_TOKEN=' .dev.vars | cut -d= -f2- | npx wrangler secret put
 Keep `SIGNING_SECRET` once guests have manage links. The links are signed
 with it, so a new secret breaks every reschedule or cancel link sent so far.
 
-`public/.assetsignore` keeps the server bundle (`_worker.js`) out of the
-public files. Don't remove it.
+`dist/client` holds public assets. Wrangler deploys the server bundle separately and creates the `BOOKING_COORDINATOR` Durable Object on first deploy. Keep this binding and its migration when customizing the configuration.
 
 ### Deploy on every push
 
 1. In the Cloudflare dashboard, open Workers & Pages → **schedulum** →
    Settings → Builds, and connect your GitHub repository.
-2. Use branch `main`, build command `npm run build`, and deploy command
+2. The repository's `.nvmrc` selects Node.js 24. Use branch `main`, build
+   command `npm run build`, and deploy command
    `npx wrangler deploy`.
 3. Clear **Enable Preview builds**. Preview builds run with the real
    calendar's secrets.
@@ -211,14 +211,15 @@ The job needs Node 18 or later. Each account is a token file in Google's
 authorized-user format (`client_id`, `client_secret`, `refresh_token`), as
 Google's own libraries save it. The job only reads these files.
 
-1. Copy the script to the server and check the sign-ins. This step saves
-   them, with a new shared secret, in `~/.config/schedulum/push.json` on the
-   server:
+1. Replace `https://meet.example.com` with the HTTPS origin of your own
+   booking site. Copy the script to the server and check the sign-ins. Setup
+   saves the destination, token file paths, and a shared secret in
+   `~/.config/schedulum/push.json` for the timer.
 
    ```bash
    ssh <server> 'mkdir -p ~/.config/schedulum'
    scp scripts/push-busy.mjs <server>:.config/schedulum/
-   ssh <server> 'node ~/.config/schedulum/push-busy.mjs --setup /path/to/token.json'
+   ssh <server> 'SCHEDULUM_URL=https://meet.example.com node ~/.config/schedulum/push-busy.mjs --setup /path/to/token.json'
    ```
 
 2. Give the Worker the same secret. The secret passes straight through and is
@@ -240,6 +241,7 @@ Google's own libraries save it. The job only reads these files.
 run `journalctl --user -u schedulum-busy`. The timer runs while you're logged
 out only if lingering is on for that user (`loginctl enable-linger`).
 
+- **When upgrading a sync job installed before v0.1**, run `SCHEDULUM_URL=https://meet.example.com node ~/.config/schedulum/push-busy.mjs --setup` on the server with your own origin. This reuses the saved accounts. The new script waits for this step before sending. Keeping the same destination preserves its secret. Changing destinations generates a fresh secret. Repeat step 2 for the new Worker.
 - **To change accounts**, run `--setup` again with the new token files. The
   secret stays the same.
 - **After you update the script or change Node versions**, copy the script

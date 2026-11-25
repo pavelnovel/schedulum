@@ -5,7 +5,7 @@
  * Google sign-in for each account. It only reads that sign-in's token file,
  * never changes it, and sends only start and end times.
  *
- *   node push-busy.mjs --setup <token file>…   # check the sign-ins; save them and a new shared secret
+ *   SCHEDULUM_URL=https://meet.example.com node push-busy.mjs --setup <token file>…   # check the sign-ins; save them and a new shared secret
  *   node push-busy.mjs --secret                # print the secret, to pipe into `wrangler secret put`
  *   node push-busy.mjs --dry-run               # read and summarize; send nothing
  *   node push-busy.mjs                         # read and send once
@@ -20,7 +20,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -31,7 +31,6 @@ const LAST_GOOD = join(DIR, 'last-good.json');
 const INSTALLED = join(DIR, 'push-busy.mjs');
 const UNITS = join(homedir(), '.config/systemd/user');
 const UNIT = 'schedulum-busy';
-const DEFAULT_URL = 'https://meet.pavelnovel.com';
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Covers the 28-day booking horizon in src/config.ts, with room to spare.
 const DAYS = 30;
@@ -145,7 +144,20 @@ function readLastGood() {
   }
 }
 
+/** Only an explicit HTTPS origin can receive the shared secret and calendar intervals. */
+export function syncOrigin(value) {
+  if (!value) throw new Error('Set SCHEDULUM_URL to the HTTPS origin of your booking site before setup.');
+  const url = new URL(value);
+  if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('SCHEDULUM_URL must be an HTTPS origin, such as https://meet.example.com.');
+  }
+  return url.origin;
+}
+
 async function setup(files) {
+  const existing = existsSync(CONFIG) ? JSON.parse(readFileSync(CONFIG, 'utf8')) : {};
+  const url = syncOrigin(process.env.SCHEDULUM_URL ?? (existing.version === 2 ? existing.url : undefined));
+  if (!files.length) files = (existing.sources ?? []).map(source => source.token);
   if (!files.length) throw new Error('Name at least one token file.');
   const sources = [];
   const now = Date.now();
@@ -156,20 +168,23 @@ async function setup(files) {
     sources.push({ token: file, account: account || file });
     console.log(`${account || file}: read its calendar, ${busy.length} busy blocks in the next day.`);
   }
-  const existing = existsSync(CONFIG) ? JSON.parse(readFileSync(CONFIG, 'utf8')) : {};
-  // Keep the secret, so changing accounts never needs a new Worker secret.
-  const secret = existing.secret ?? randomBytes(32).toString('hex');
+  // A secret previously sent to another host must never authorize the new host.
+  const sameDestination = existing.url === url || existing.url === url + '/';
+  const secret = (sameDestination && existing.secret) || randomBytes(32).toString('hex');
   mkdirSync(DIR, { recursive: true, mode: 0o700 });
-  writeFileSync(CONFIG, `${JSON.stringify({ url: existing.url ?? DEFAULT_URL, secret, sources }, null, 2)}\n`, { mode: 0o600 });
-  console.log(`Saved ${CONFIG}.`);
-  if (!existing.secret) {
+  writeFileSync(CONFIG, `${JSON.stringify({ version: 2, url, secret, sources }, null, 2)}\n`, { mode: 0o600 });
+  console.log(`Saved ${CONFIG}. Destination: ${url}.`);
+  if (secret !== existing.secret) {
     console.log(`Next, from the checkout, give the Worker the same secret:\n  ssh <this server> 'node ${fileURLToPath(import.meta.url)} --secret' | npx wrangler secret put BUSY_SYNC_SECRET`);
   }
 }
 
 async function push({ dryRun }) {
   const config = readConfig();
-  const url = process.env.SCHEDULUM_URL ?? config.url;
+  const url = syncOrigin(config.url);
+  if (config.version !== 2 || (process.env.SCHEDULUM_URL && syncOrigin(process.env.SCHEDULUM_URL) !== url)) {
+    throw new Error('Confirm the destination with SCHEDULUM_URL=https://your-booking-site node push-busy.mjs --setup.');
+  }
   const { until, results } = await readAll(config.sources);
   const { busy, saved, notes } = withLastGood(results, readLastGood(), Date.now());
   const read = results.filter((r) => r.busy).length;
@@ -180,6 +195,7 @@ async function push({ dryRun }) {
   }
   const res = await fetch(new URL('/api/busy', url), {
     method: 'PUT',
+    redirect: 'error',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${config.secret}` },
     body: JSON.stringify({
       until: new Date(until).toISOString(),
@@ -253,7 +269,7 @@ async function main(args) {
   throw new Error(`Unknown option ${flag}. See the comment at the top of this script.`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && existsSync(process.argv[1]) && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   main(process.argv.slice(2)).catch((err) => {
     console.error(`${new Date().toISOString()} ${err.message}`);
     process.exit(1);

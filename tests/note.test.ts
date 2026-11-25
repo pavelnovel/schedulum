@@ -104,7 +104,7 @@ describe('POST /api/note', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       }),
-      locals: { runtime: { env } },
+      locals: { env },
     } as never);
 
   it('takes a note in development without sending anything', async () => {
@@ -124,7 +124,7 @@ describe('POST /api/note', () => {
   });
 
   it('turns notes off, not open, when the spam check is switched off', async () => {
-    const res = await call(ok, {});
+    const res = await call(ok, { CALENDAR_MODE: 'google' });
     expect(res.status).toBe(503);
     expect((await res.json()).error.message).toBe('Notes are off for a moment. You can email pkonopl@gmail.com instead.');
   });
@@ -133,7 +133,7 @@ describe('POST /api/note', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.stubGlobal('fetch', async () => Response.json({ success: true, action: 'note' }));
     // Spam check passes; Google isn't connected, so sending fails.
-    const res = await call({ ...ok, turnstile: 'tok' }, { TURNSTILE_SECRET_KEY: 'secret' });
+    const res = await call({ ...ok, turnstile: 'tok' }, { CALENDAR_MODE: 'google', TURNSTILE_SECRET_KEY: 'secret' });
     vi.unstubAllGlobals();
     expect(res.status).toBe(503);
     expect((await res.json()).error.message).toBe('Couldn’t send your note just now. You can email pkonopl@gmail.com instead.');
@@ -145,7 +145,7 @@ describe('POST /api/note', () => {
   it('won’t take a token from the booking form', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.stubGlobal('fetch', async () => Response.json({ success: true, action: 'book' }));
-    const res = await call({ ...ok, turnstile: 'tok' }, { TURNSTILE_SECRET_KEY: 'secret' });
+    const res = await call({ ...ok, turnstile: 'tok' }, { CALENDAR_MODE: 'google', TURNSTILE_SECRET_KEY: 'secret' });
     vi.unstubAllGlobals();
     warn.mockRestore();
     expect(res.status).toBe(403);

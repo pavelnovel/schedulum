@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { envOf, failure, json, readJson } from '../../lib/http';
+import { failure, json, readJson } from '../../lib/http';
 import { parsePush, saveSnapshot, syncStore } from '../../lib/synced';
 import { sameString } from '../../lib/tokens';
 
@@ -11,7 +11,7 @@ export const prerender = false;
  * namespace are both set.
  */
 export const PUT: APIRoute = async ({ locals, request }) => {
-  const env = envOf(locals);
+  const env = locals.env;
   const store = syncStore(env);
   if (!store) return json({ ok: false }, 404);
   if (!sameString(request.headers.get('authorization') ?? '', `Bearer ${env.BUSY_SYNC_SECRET}`)) return json({ ok: false }, 401);

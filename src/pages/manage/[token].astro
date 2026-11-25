@@ -2,8 +2,8 @@
 import Booker, { type ManageBoot } from '../../components/Booker.astro';
 import Layout from '../../layouts/Layout.astro';
 import { advertising, host } from '../../config';
-import { BookingError, lengthOf, lookup } from '../../lib/booking';
-import { depsFrom } from '../../lib/http';
+import { BookingError } from '../../lib/booking';
+import { coordinator } from '../../lib/http';
 
 export const prerender = false;
 
@@ -13,20 +13,18 @@ let problem: string | undefined;
 let spoiled = false;
 
 try {
-  const { booking, label } = await lookup(depsFrom(Astro.locals, Astro.request), token);
-  spoiled = booking.routeId === advertising.route.id;
-  if (booking.start.getTime() <= Date.now()) {
+  const response = await coordinator(Astro.locals.env).fetch(Astro.request);
+  if (response.status === 404) {
+    const { error } = await response.json() as { error: { message: string } };
+    throw new BookingError('not_found', error.message);
+  }
+  if (!response.ok) throw new Error(`Calendar lookup returned ${response.status}`);
+  const details = await response.json() as Omit<ManageBoot, 'token'>;
+  spoiled = details.routeId === advertising.route.id;
+  if (Date.parse(details.start) <= Date.now()) {
     problem = 'This conversation has already happened, so it can’t be changed here.';
   } else {
-    manage = {
-      token,
-      routeId: booking.routeId,
-      label,
-      minutes: lengthOf(booking),
-      start: booking.start.toISOString(),
-      end: booking.end.toISOString(),
-      meetUrl: booking.meetUrl,
-    };
+    manage = { ...details, token };
   }
 } catch (err) {
   if (err instanceof BookingError) {

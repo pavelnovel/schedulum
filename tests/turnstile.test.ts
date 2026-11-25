@@ -1,3 +1,4 @@
+import { testLocals } from './coordinator-fixture';
 import { describe, expect, it, vi } from 'vitest';
 import { POST } from '../src/pages/api/book';
 import { verifyHuman } from '../src/lib/turnstile';
@@ -59,7 +60,7 @@ describe('POST /api/book', () => {
   const env = { CALENDAR_MODE: 'fake', SIGNING_SECRET: 'test-secret-that-is-at-least-32-characters-long' };
   const post = (extra: Record<string, string>) =>
     POST({
-      locals: { runtime: { env: { ...env, ...extra } } },
+      locals: testLocals({ ...env, ...extra }),
       request: new Request('https://meet.example/api/book', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

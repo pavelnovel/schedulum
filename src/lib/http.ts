@@ -5,17 +5,20 @@
 import { host } from '../config';
 import { BookingError, type Deps } from './booking';
 import { CalendarError } from './calendar';
-import { calendarFor, notifier, signingSecret, type Env } from './env';
+import { calendarFor, localBuild, notifier, signingSecret, type Env } from './env';
 import { isValidTimeZone } from './tz';
 
-export const envOf = (locals: App.Locals): Env => (locals.runtime?.env ?? {}) as Env;
+export function coordinator(env: Env) {
+  // One person owns both calendars, so every booking route uses the same object.
+  return env.BOOKING_COORDINATOR.getByName('host');
+}
 
-export function depsFrom(locals: App.Locals, request: Request): Deps {
-  const env = envOf(locals);
+export function depsFrom(env: Env, request: Request): Deps {
+  const origin = new URL(request.url).origin;
   return {
     calendar: calendarFor(env),
     secret: signingSecret(env),
-    publicUrl: (env.PUBLIC_URL ?? new URL(request.url).origin).replace(/\/$/, ''),
+    publicUrl: (localBuild ? origin : env.PUBLIC_URL ?? origin).replace(/\/$/, ''),
     notify: notifier(env),
   };
 }

@@ -1,3 +1,4 @@
+import { testLocals } from './coordinator-fixture';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { advertising, meeting, minutesFor, routes, type Route } from '../src/config';
 import { book, BookingError, cancel, listSlots, lookup, MAX_UPCOMING_PER_GUEST, reschedule, type Deps } from '../src/lib/booking';
@@ -143,18 +144,22 @@ describe('book', () => {
 
   // A booking that lands after this one's first check, which therefore can't see it.
   async function lateRival(start: Date, id = 'rival') {
-    calendar.busy = async () => [];
-    await calendar.create({
-      id,
-      start,
-      end: new Date(start.getTime() + meeting.minutes * 60_000),
-      summary: '',
-      description: '',
-      routeId: route.id,
-      guestName: 'Grace',
-      guestEmail: 'grace@example.com',
-      guestKey: 'g',
-    });
+    const create = calendar.create.bind(calendar);
+    calendar.create = async (incoming) => {
+      const mine = await create(incoming);
+      await create({
+        id,
+        start,
+        end: new Date(start.getTime() + meeting.minutes * 60_000),
+        summary: '',
+        description: '',
+        routeId: route.id,
+        guestName: 'Grace',
+        guestEmail: 'grace@example.com',
+        guestKey: 'g',
+      });
+      return mine;
+    };
   }
 
   it('withdraws when another booking took the same time after the first check', async () => {
@@ -369,7 +374,7 @@ describe('a topic with a length of its own', () => {
     const env = { CALENDAR_MODE: 'fake', SIGNING_SECRET: SECRET };
     const get = async (query: string) => {
       const url = new URL(`https://meet.example/api/slots${query}`);
-      const res = await slotsApi({ locals: { runtime: { env } }, request: new Request(url), url } as unknown as Parameters<typeof slotsApi>[0]);
+      const res = await slotsApi({ locals: testLocals(env), request: new Request(url), url } as unknown as Parameters<typeof slotsApi>[0]);
       return (await res.json()) as { ok: boolean; minutes: number; slots: string[] };
     };
     for (const query of ['', '?route=nope', '?route=ai-systems']) {

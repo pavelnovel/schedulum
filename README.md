@@ -62,6 +62,8 @@ src/lib/
 scripts/push-busy.mjs           runs on a server, sends other accounts' busy times
 ```
 
+A single Cloudflare Durable Object queues calendar changes across personal and work bookings.
+
 Google Calendar handles delivery: the invite email, updates, cancellations,
 reminders, and the Meet link. A guest's name, email, and note go only into
 the calendar event, and a note goes only into one email to you. Schedulum
@@ -98,13 +100,14 @@ adding Outlook or CalDAV means a new file beside `src/lib/google.ts`, chosen in
 
 ## Develop
 
-You need Node.js 22 or later.
+You need Node.js 22.23.4 or later.
 
 ```bash
-npm install
-cp .dev.vars.example .dev.vars   # an in-memory calendar, no Google account needed
+npm ci
+test -f .dev.vars || (umask 077 && cp .dev.vars.example .dev.vars)  # local demo
 npm run dev                      # http://localhost:4321
 npm test                         # unit tests
+npx playwright install chromium  # once per test machine
 npx playwright test              # browser and accessibility tests, with the dev server running
 ```
 

@@ -11,6 +11,7 @@ import { fakeMailer, gmailMailer, type Mailer } from './note';
 import { syncStore, withSyncedBusy, type Store } from './synced';
 
 export type Env = {
+  BOOKING_COORDINATOR: { getByName(name: string): { fetch(request: Request): Promise<Response> } };
   CALENDAR_MODE?: 'google' | 'fake';
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
@@ -38,8 +39,16 @@ let fake: Calendar | undefined;
 let fakeAdvertising: Calendar | undefined;
 let fakeMail: ReturnType<typeof fakeMailer> | undefined;
 
+export const localBuild = import.meta.env.DEV || import.meta.env.MODE === 'demo';
+
+export function calendarMode(env: Env): 'fake' | 'google' {
+  const mode = env.CALENDAR_MODE ?? (localBuild ? 'fake' : 'google');
+  if (mode !== 'fake' && mode !== 'google') throw new CalendarError('config', 'Unknown CALENDAR_MODE.');
+  return mode;
+}
+
 export function calendarFor(env: Env): Calendar {
-  const isFake = env.CALENDAR_MODE === 'fake';
+  const isFake = calendarMode(env) === 'fake';
   const personal = isFake ? (fake ??= fakeCalendar(availability.timezone)) : google(env);
   const advertising = isFake ? (fakeAdvertising ??= fakeCalendar(availability.timezone)) : googleAdvertising(env);
   const calendar = withAdvertisingCalendar(personal, advertising);
@@ -49,7 +58,7 @@ export function calendarFor(env: Env): Calendar {
 
 /** Where visitors' notes go: the host's Gmail, or nowhere in development. */
 export function mailerFor(env: Env): Mailer {
-  return env.CALENDAR_MODE === 'fake' ? (fakeMail ??= fakeMailer()) : gmailMailer(googleCreds(env));
+  return calendarMode(env) === 'fake' ? (fakeMail ??= fakeMailer()) : gmailMailer(googleCreds(env));
 }
 
 function googleCreds(env: Env) {

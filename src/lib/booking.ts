@@ -48,12 +48,15 @@ export async function listSlots(deps: Deps, minutes: number, exclude?: Booking):
   const dayAgo = new Date(now.getTime() - 24 * 60 * MINUTE);
   const [busyRaw, booked] = await Promise.all([deps.calendar.busy(now, to), deps.calendar.bookings(dayAgo, to)]);
 
-  let busy: Interval[] = busyRaw;
+  let busy: Interval[] = [...busyRaw];
   if (exclude) busy = subtract(busy, { start: exclude.start.getTime(), end: exclude.end.getTime() });
 
   const bookedPerDay = new Map<string, number>();
   for (const b of booked) {
     if (b.id === exclude?.id) continue;
+    // freeBusy and the event listing are independent provider reads. A booking
+    // visible in either still blocks the slot, including during a reschedule.
+    busy.push({ start: b.start.getTime(), end: b.end.getTime() });
     const key = dateKey(b.start, availability.timezone);
     bookedPerDay.set(key, (bookedPerDay.get(key) ?? 0) + 1);
   }

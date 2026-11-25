@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
 import { host } from '../../config';
 import { BookingError } from '../../lib/booking';
-import { mailerFor } from '../../lib/env';
-import { envOf, failure, json, readJson, str } from '../../lib/http';
+import { calendarMode, mailerFor } from '../../lib/env';
+import { failure, json, readJson, str } from '../../lib/http';
 import { noteMessage, validateNote } from '../../lib/note';
 import { verifyHuman } from '../../lib/turnstile';
 
@@ -15,10 +15,10 @@ export const POST: APIRoute = async ({ locals, request }) => {
     // Honeypot: a field people never see. Bots fill it in.
     if (str(body.website)) throw new BookingError('invalid', 'Something went wrong. Try again.');
 
-    const env = envOf(locals);
+    const env = locals.env;
     // Bookings are capped by the calendar; notes only by the spam check. With the
     // check switched off in an emergency, notes go off too rather than open a relay.
-    if (!env.TURNSTILE_SECRET_KEY && env.CALENDAR_MODE !== 'fake') {
+    if (!env.TURNSTILE_SECRET_KEY && calendarMode(env) !== 'fake') {
       return json({ ok: false, error: { code: 'unavailable', message: `Notes are off for a moment. You can email ${host.email} instead.` } }, 503);
     }
     const ip = request.headers.get('cf-connecting-ip');

@@ -3,6 +3,7 @@ dist/
 .astro/
 .wrangler/
 .dev.vars
+.dev.vars.*.tmp
 .env
 .DS_Store
 test-results/

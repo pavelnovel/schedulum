@@ -1,7 +1,5 @@
 name = "schedulum"
-# Astro's Cloudflare adapter builds the server into dist/_worker.js. Static
-# pages are served from dist as assets; everything else reaches the Worker.
-main = "./dist/_worker.js/index.js"
+main = "./src/worker.ts"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
@@ -13,7 +11,7 @@ routes = [{ pattern = "meet.pavelnovel.com", custom_domain = true }]
 
 [assets]
 binding = "ASSETS"
-directory = "./dist"
+directory = "./dist/client"
 
 [vars]
 PUBLIC_URL = "https://meet.pavelnovel.com"
@@ -27,3 +25,11 @@ id = "d65fff4ab6ab476ba481d742c6c5544c"
 
 [observability]
 enabled = true
+
+[[durable_objects.bindings]]
+name = "BOOKING_COORDINATOR"
+class_name = "BookingCoordinator"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BookingCoordinator"]

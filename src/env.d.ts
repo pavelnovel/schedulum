@@ -5,8 +5,12 @@ interface ImportMetaEnv {
   readonly PUBLIC_TURNSTILE_SITE_KEY?: string;
 }
 
-type Runtime = import('@astrojs/cloudflare').Runtime<import('./lib/env').Env>;
-
 declare namespace App {
-  interface Locals extends Runtime {}
+  interface Locals {
+    env: import('./lib/env').Env;
+  }
+}
+
+declare module 'cloudflare:workers' {
+  export const env: import('./lib/env').Env;
 }

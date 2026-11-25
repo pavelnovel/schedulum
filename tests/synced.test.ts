@@ -1,3 +1,4 @@
+import { testLocals } from './coordinator-fixture';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -98,11 +99,10 @@ describe('parsePush', () => {
 describe('PUT /api/busy', () => {
   const SECRET = 'sync-secret-that-is-at-least-32-characters';
   const base = { CALENDAR_MODE: 'fake', SIGNING_SECRET: 'test-secret-that-is-at-least-32-characters-long' };
-  const locals = (env: Record<string, unknown>) => ({ runtime: { env } });
 
   const put = (env: Record<string, unknown>, body: unknown, auth = `Bearer ${SECRET}`) =>
     PUT({
-      locals: locals(env),
+      locals: testLocals(env),
       request: new Request('https://meet.example/api/busy', {
         method: 'PUT',
         headers: { 'content-type': 'application/json', authorization: auth },
@@ -112,7 +112,7 @@ describe('PUT /api/busy', () => {
 
   const slots = async (env: Record<string, unknown>) => {
     const res = await GET({
-      locals: locals(env),
+      locals: testLocals(env),
       request: new Request('https://meet.example/api/slots?route=ai-systems'),
       url: new URL('https://meet.example/api/slots?route=ai-systems'),
     } as unknown as Parameters<typeof GET>[0]);
