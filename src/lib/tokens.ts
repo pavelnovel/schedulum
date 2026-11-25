@@ -8,7 +8,7 @@
 const encoder = new TextEncoder();
 // Google event ids must be base32hex: lowercase a–v and digits.
 const BASE32HEX = '0123456789abcdefghijklmnopqrstuv';
-const ADVERTISING_PREFIX = 's';
+const WORK_CALENDAR_PREFIX = 's';
 
 async function hmac(secret: string, message: string): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [
@@ -24,15 +24,15 @@ function base64url(bytes: Uint8Array): string {
 }
 
 /** The prefix marks new work events. Older event IDs have exactly 26 characters. */
-export function newEventId(advertising = false): string {
+export function newEventId(workCalendar = false): string {
   const bytes = crypto.getRandomValues(new Uint8Array(26));
-  let id = advertising ? ADVERTISING_PREFIX : '';
+  let id = workCalendar ? WORK_CALENDAR_PREFIX : '';
   for (const b of bytes) id += BASE32HEX[b & 31];
   return id;
 }
 
-export function isAdvertisingEventId(id: string): boolean {
-  return id.length === 27 && id.startsWith(ADVERTISING_PREFIX);
+export function isWorkEventId(id: string): boolean {
+  return id.length === 27 && id.startsWith(WORK_CALENDAR_PREFIX);
 }
 
 export async function signId(id: string, secret: string): Promise<string> {

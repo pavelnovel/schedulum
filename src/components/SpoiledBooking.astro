@@ -1,0 +1,23 @@
+---
+import Booker from './Booker.astro';
+import Layout from '../layouts/Layout.astro';
+import NotFound from '../pages/404.astro';
+import { spoiledFrameAncestors, type SpoiledBookingPage } from '../config';
+import { advertisingEnabled } from '../lib/env';
+
+interface Props {
+  page: SpoiledBookingPage;
+}
+
+const { page } = Astro.props;
+const enabled = advertisingEnabled(Astro.locals.env);
+if (!enabled) Astro.response.status = 404;
+if (enabled && !import.meta.env.DEV) Astro.response.headers.set('content-security-policy', spoiledFrameAncestors);
+Astro.response.headers.set('cache-control', 'no-store');
+---
+
+{enabled ? (
+  <Layout title={page.title} description={page.route.response || page.lede} path={`/${page.route.id}`} spoiled={page}>
+    <Booker mode="book" initialRoute={page.route.id} />
+  </Layout>
+) : <NotFound />}

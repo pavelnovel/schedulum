@@ -12,7 +12,7 @@
  * calendar. Without JavaScript the topics still read in full and offer email
  * and LinkedIn.
  */
-import { advertising, availability, findRoute, host, meeting, minutesFor, opening, routes, visitorHours } from '../config';
+import { availability, findRoute, host, meeting, minutesFor, opening, routes, spoiledBookingFor, visitorHours } from '../config';
 import Sketch from './Sketch.astro';
 
 export type ManageBoot = {
@@ -32,8 +32,8 @@ interface Props {
 }
 
 const { mode, initialRoute, manage } = Astro.props;
-const spoiled = (manage?.routeId ?? initialRoute) === advertising.route.id;
-const email = spoiled ? advertising.email : host.email;
+const spoiled = spoiledBookingFor(manage?.routeId ?? initialRoute);
+const email = spoiled?.email ?? host.email;
 const linkedin = spoiled ? undefined : host.linkedin;
 // A topic's own page (/speaking) renders with that topic already picked.
 const initial = mode === 'book' ? findRoute(initialRoute) : undefined;
@@ -48,7 +48,7 @@ const boot = {
   hostTimeZone: availability.timezone,
   visitorHours,
   meeting,
-  routes: (spoiled ? [advertising.route] : routes).map((route) => ({
+  routes: (spoiled ? [spoiled.route] : routes).map((route) => ({
     id: route.id,
     label: route.label,
     response: route.response,
@@ -124,13 +124,13 @@ const icon = {
             <div class="rail" data-rail>
               <h1 id="rail-title" class="rail-title" tabindex="-1">
                 <Sketch type="underline" seed={7} tone="faint" delay={180}>
-                  {spoiled ? advertising.title : opening.title}
+                  {spoiled?.title ?? opening.title}
                 </Sketch>
               </h1>
               {spoiled ? (
                 <>
-                  <p class="rail-lede">A {minutesFor(initial)}-minute Google Meet with {host.name}, co-founder of Spoiled NYC.</p>
-                  <p class="rail-lede">{advertising.route.response}</p>
+                  <p class="rail-lede">{spoiled.lede}</p>
+                  {spoiled.route.response && <p class="rail-lede">{spoiled.route.response}</p>}
                 </>
               ) : (
                 <>
@@ -207,7 +207,7 @@ const icon = {
                 </li>
               </ul>
 
-              {manageRoute && <p class="summary-response mt-5 text-pretty text-[0.875rem] text-muted">{manageRoute.response}</p>}
+              {manageRoute?.response && <p class="summary-response mt-5 text-pretty text-[0.875rem] text-muted">{manageRoute.response}</p>}
             </div>
           )
         }
@@ -457,7 +457,7 @@ const icon = {
     <h1 id="cancelled-title" class="doc-h1" tabindex="-1">Cancelled</h1>
     <p class="mt-3 text-muted">
       Google Calendar is letting you both know. If you want to talk another time,
-      <a class="link" href={spoiled ? `/${advertising.route.id}` : '/'}>pick a new time</a>.
+      <a class="link" href={spoiled ? `/${spoiled.route.id}` : '/'}>pick a new time</a>.
     </p>
   </section>
 

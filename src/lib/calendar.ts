@@ -4,7 +4,7 @@
  * development fake both live below it.
  */
 import type { Interval } from './availability';
-import { isAdvertisingEventId } from './tokens';
+import { isWorkEventId } from './tokens';
 
 export type Booking = {
   id: string;
@@ -54,21 +54,21 @@ export class CalendarError extends Error {
   }
 }
 
-export function withAdvertisingCalendar(personal: Calendar, advertising?: Calendar): Calendar {
+export function withWorkCalendar(personal: Calendar, work?: Calendar): Calendar {
   function calendarForEvent(id: string): Calendar {
-    if (!isAdvertisingEventId(id)) return personal;
-    if (!advertising) throw new CalendarError('config', 'The advertising organizer’s calendar is not connected.');
-    return advertising;
+    if (!isWorkEventId(id)) return personal;
+    if (!work) throw new CalendarError('config', 'The Spoiled Media calendar is not connected.');
+    return work;
   }
 
   return {
     async busy(from, to) {
-      if (!advertising) return personal.busy(from, to);
-      return (await Promise.all([personal.busy(from, to), advertising.busy(from, to)])).flat();
+      if (!work) return personal.busy(from, to);
+      return (await Promise.all([personal.busy(from, to), work.busy(from, to)])).flat();
     },
     async bookings(from, to, guestKey) {
-      if (!advertising) return personal.bookings(from, to, guestKey);
-      return (await Promise.all([personal.bookings(from, to, guestKey), advertising.bookings(from, to, guestKey)])).flat();
+      if (!work) return personal.bookings(from, to, guestKey);
+      return (await Promise.all([personal.bookings(from, to, guestKey), work.bookings(from, to, guestKey)])).flat();
     },
     create: async (booking) => calendarForEvent(booking.id).create(booking),
     get: async (id) => calendarForEvent(id).get(id),

@@ -106,12 +106,13 @@ test('book with a topic, which sharpens the question and travels with the bookin
 
 test('a personal fork omits the work organizer page and rejects its requests', async ({ page, request }) => {
   test.skip(test.info().project.metadata.advertising);
-  const response = await page.goto('/spoiled-nyc');
-  expect(response?.status()).toBe(404);
-  await expect(page.getByRole('heading', { name: 'There’s no page here' })).toBeVisible();
-  expect((await request.get('/api/slots?route=spoiled-nyc')).status()).toBe(404);
-  for (const path of ['/api/book', '/api/note']) {
-    expect((await request.post(path, { data: { routeId: 'spoiled-nyc' } })).status()).toBe(404);
+  for (const routeId of ['spoiled-nyc', 'spoiled-meeting-pavel']) {
+    expect((await page.goto(`/${routeId}`))?.status()).toBe(404);
+    await expect(page.getByRole('heading', { name: 'There’s no page here' })).toBeVisible();
+    expect((await request.get(`/api/slots?route=${routeId}`)).status()).toBe(404);
+    for (const path of ['/api/book', '/api/note']) {
+      expect((await request.post(path, { data: { routeId } })).status()).toBe(404);
+    }
   }
   await page.goto('/privacy');
   await expect(page.locator('main')).not.toContainText('Spoiled NYC');
@@ -147,6 +148,31 @@ test('Spoiled advertisers book on the shared calendar with a fixed meeting type'
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('button', { name: 'Cancel conversation' }).click();
   await expect(page.getByRole('link', { name: 'pick a new time' })).toHaveAttribute('href', '/spoiled-nyc');
+});
+
+test('Pavel’s Spoiled chat link books with general meeting copy', async ({ page }) => {
+  test.skip(!test.info().project.metadata.advertising);
+  await page.goto('/spoiled-meeting-pavel');
+  await expect(page.getByRole('heading', { name: 'Book a meeting to chat' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'spoiled NYC', exact: true })).toHaveAttribute('href', 'https://spoilednyc.com');
+  await expect(page.locator('[data-topic], [data-topic-select]')).toHaveCount(0);
+
+  await pickFirstTime(page);
+  await page.getByLabel('Name', { exact: true }).fill('Ada Lovelace');
+  await page.getByLabel('Email', { exact: true }).fill(unique());
+  await expect(page.getByLabel(/What’s on your mind/)).toBeVisible();
+  const [request] = await Promise.all([
+    page.waitForRequest((r) => r.url().endsWith('/api/book')),
+    page.getByRole('button', { name: 'Book this time' }).click(),
+  ]);
+  expect(request.postDataJSON()).toMatchObject({ routeId: 'spoiled-meeting-pavel' });
+  await expect(page.locator('[data-done-facts]')).toContainText('A chat with Pavel');
+
+  const manage = await page.getByRole('link', { name: 'Reschedule or cancel' }).getAttribute('href');
+  await page.goto(manage!);
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancel conversation' }).click();
+  await expect(page.getByRole('link', { name: 'pick a new time' })).toHaveAttribute('href', '/spoiled-meeting-pavel');
 });
 
 test('on a wide screen, landing to the details form is one click', async ({ page }) => {

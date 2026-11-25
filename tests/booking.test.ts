@@ -1,8 +1,8 @@
 import { testLocals } from './coordinator-fixture';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { advertising, host, meeting, minutesFor, routes, type Route } from '../src/config';
+import { advertising, host, meeting, minutesFor, pavelMeeting, routes, type Route } from '../src/config';
 import { book, BookingError, cancel, listSlots, lookup, MAX_UPCOMING_PER_GUEST, reschedule, type Deps } from '../src/lib/booking';
-import { withAdvertisingCalendar, type Calendar } from '../src/lib/calendar';
+import { withWorkCalendar, type Calendar } from '../src/lib/calendar';
 import { fakeCalendar } from '../src/lib/fake';
 import { newEventId, signId } from '../src/lib/tokens';
 import { GET as slotsApi } from '../src/pages/api/slots';
@@ -63,16 +63,16 @@ describe('book', () => {
     expect(summary).toBe(`Ada Lovelace × ${host.firstName}`);
   });
 
-  it('creates, reschedules, and cancels new Spoiled bookings on the work calendar', async () => {
+  it.each([advertising, pavelMeeting])('creates, reschedules, and cancels "$title" on the work calendar', async (page) => {
     const work = fakeCalendar('America/New_York');
-    deps.calendar = withAdvertisingCalendar(calendar, work);
+    deps.calendar = withWorkCalendar(calendar, work);
     const start = await firstSlot();
-    const result = await book(deps, { routeId: advertising.route.id, start, ...guest });
+    const result = await book(deps, { routeId: page.route.id, start, ...guest });
     const token = result.manageUrl.split('/manage/')[1];
     const { booking } = await lookup(deps, token);
 
     expect(booking.id).toMatch(/^s[0-9a-v]{26}$/);
-    expect(await work.get(booking.id)).toMatchObject({ guestEmail: guest.email });
+    expect(await work.get(booking.id)).toMatchObject({ guestEmail: guest.email, routeId: page.route.id });
     expect(await calendar.get(booking.id)).toBeNull();
     expect((await listSlots(deps, meeting.minutes)).map((slot) => slot.toISOString())).not.toContain(start);
 
@@ -85,7 +85,7 @@ describe('book', () => {
 
   it('uses the personal calendar to manage a Spoiled event created before the migration', async () => {
     const work = fakeCalendar('America/New_York');
-    deps.calendar = withAdvertisingCalendar(calendar, work);
+    deps.calendar = withWorkCalendar(calendar, work);
     const start = new Date(await firstSlot());
     const id = newEventId();
     await calendar.create({
@@ -100,16 +100,16 @@ describe('book', () => {
     expect((await calendar.get(id))?.cancelled).toBe(true);
   });
 
-  it('refuses a new Spoiled booking when the work organizer is unavailable', async () => {
-    deps.calendar = withAdvertisingCalendar(calendar);
+  it.each([advertising, pavelMeeting])('refuses "$title" when the work organizer is unavailable', async (page) => {
+    deps.calendar = withWorkCalendar(calendar);
     const start = await firstSlot();
 
-    await expect(book(deps, { routeId: advertising.route.id, start, ...guest })).rejects.toMatchObject({ kind: 'config' });
+    await expect(book(deps, { routeId: page.route.id, start, ...guest })).rejects.toMatchObject({ kind: 'config' });
     expect(await firstSlot()).toBe(start);
   });
 
   it('counts the guest’s bookings across both calendars', async () => {
-    deps.calendar = withAdvertisingCalendar(calendar, fakeCalendar('America/New_York'));
+    deps.calendar = withWorkCalendar(calendar, fakeCalendar('America/New_York'));
     await book(deps, { routeId: advertising.route.id, start: await firstSlot(), ...guest });
     await book(deps, { routeId: route.id, start: await firstSlot(), ...guest });
 

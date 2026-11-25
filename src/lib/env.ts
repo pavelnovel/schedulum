@@ -4,7 +4,7 @@
  * `.dev.vars` locally.
  */
 import { availability } from '../config';
-import { CalendarError, withAdvertisingCalendar, type Calendar } from './calendar';
+import { CalendarError, withWorkCalendar, type Calendar } from './calendar';
 import { fakeCalendar } from './fake';
 import { googleCalendar } from './google';
 import { fakeMailer, gmailMailer, type Mailer } from './note';
@@ -21,7 +21,7 @@ export type Env = {
   SIGNING_SECRET?: string;
   /** Origin used in manage links, e.g. `https://meet.pavelnovel.com`. */
   PUBLIC_URL?: string;
-  /** OAuth credentials for the Google account that organizes spoiled NYC advertising meetings. */
+  /** OAuth credentials for the Spoiled Media account that organizes spoiled NYC meetings. */
   ADVERTISING_GOOGLE_CLIENT_ID?: string;
   ADVERTISING_GOOGLE_CLIENT_SECRET?: string;
   ADVERTISING_GOOGLE_REFRESH_TOKEN?: string;
@@ -52,17 +52,17 @@ export function calendarMode(env: Env): 'fake' | 'google' {
 export function calendarFor(env: Env): Calendar {
   const isFake = calendarMode(env) === 'fake';
   const personal = isFake ? (fake ??= fakeCalendar(availability.timezone)) : google(env);
-  let advertising: Calendar | undefined;
+  let work: Calendar | undefined;
   if (isFake) {
     if (advertisingEnabled(env)) {
       fakeAdvertising ??= fakeCalendar(availability.timezone);
-      advertising = fakeAdvertising;
+      work = fakeAdvertising;
     }
   } else {
     const credentials = advertisingCredentials(env);
-    if (credentials) advertising = googleCalendar({ ...credentials, busyCalendars: ['primary'] });
+    if (credentials) work = googleCalendar({ ...credentials, busyCalendars: ['primary'] });
   }
-  const calendar = withAdvertisingCalendar(personal, advertising);
+  const calendar = withWorkCalendar(personal, work);
   const store = syncStore(env);
   return store ? withSyncedBusy(calendar, store) : calendar;
 }
