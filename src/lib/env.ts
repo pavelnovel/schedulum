@@ -25,6 +25,8 @@ export type Env = {
   ADVERTISING_GOOGLE_CLIENT_ID?: string;
   ADVERTISING_GOOGLE_CLIENT_SECRET?: string;
   ADVERTISING_GOOGLE_REFRESH_TOKEN?: string;
+  /** Show the optional organizer with a fake calendar in the local demo. */
+  DEMO_ADVERTISING?: string;
   /** Optional: POSTed `{ text }` on every booking, reschedule, and cancellation. */
   NOTIFY_WEBHOOK_URL?: string;
   /** Cloudflare Turnstile secret. When set, every new booking must pass the spam check. */
@@ -50,7 +52,16 @@ export function calendarMode(env: Env): 'fake' | 'google' {
 export function calendarFor(env: Env): Calendar {
   const isFake = calendarMode(env) === 'fake';
   const personal = isFake ? (fake ??= fakeCalendar(availability.timezone)) : google(env);
-  const advertising = isFake ? (fakeAdvertising ??= fakeCalendar(availability.timezone)) : googleAdvertising(env);
+  let advertising: Calendar | undefined;
+  if (isFake) {
+    if (advertisingEnabled(env)) {
+      fakeAdvertising ??= fakeCalendar(availability.timezone);
+      advertising = fakeAdvertising;
+    }
+  } else {
+    const credentials = advertisingCredentials(env);
+    if (credentials) advertising = googleCalendar({ ...credentials, busyCalendars: ['primary'] });
+  }
   const calendar = withAdvertisingCalendar(personal, advertising);
   const store = syncStore(env);
   return store ? withSyncedBusy(calendar, store) : calendar;
@@ -79,14 +90,19 @@ function google(env: Env): Calendar {
   });
 }
 
-function googleAdvertising(env: Env): Calendar | undefined {
+function advertisingCredentials(env: Env) {
   const {
     ADVERTISING_GOOGLE_CLIENT_ID: clientId,
     ADVERTISING_GOOGLE_CLIENT_SECRET: clientSecret,
     ADVERTISING_GOOGLE_REFRESH_TOKEN: refreshToken,
   } = env;
   if (!clientId || !clientSecret || !refreshToken) return undefined;
-  return googleCalendar({ clientId, clientSecret, refreshToken, busyCalendars: ['primary'] });
+  return { clientId, clientSecret, refreshToken };
+}
+
+export function advertisingEnabled(env: Env): boolean {
+  if (calendarMode(env) === 'fake') return localBuild && env.DEMO_ADVERTISING === 'true';
+  return Boolean(advertisingCredentials(env));
 }
 
 export function signingSecret(env: Env): string {

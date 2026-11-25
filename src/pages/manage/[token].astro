@@ -41,7 +41,7 @@ try {
 Astro.response.headers.set('cache-control', 'no-store');
 Astro.response.headers.set('referrer-policy', 'no-referrer');
 if (spoiled && !import.meta.env.DEV) {
-  Astro.response.headers.set('content-security-policy', "frame-ancestors 'self' https://spoilednyc.com https://www.spoilednyc.com https://staging.spoilednyc.com");
+  Astro.response.headers.set('content-security-policy', advertising.frameAncestors);
 }
 ---
 

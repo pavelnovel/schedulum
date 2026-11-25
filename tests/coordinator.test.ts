@@ -8,6 +8,16 @@ import { testLocals } from './coordinator-fixture';
 
 afterEach(() => vi.restoreAllMocks());
 
+it('enables the work page only for an explicitly configured organizer in each mode', () => {
+  const { env } = testLocals({ CALENDAR_MODE: 'google' });
+  const credentials = { ADVERTISING_GOOGLE_CLIENT_ID: 'id', ADVERTISING_GOOGLE_CLIENT_SECRET: 'secret' };
+  expect(runtime.advertisingEnabled({ ...env, ...credentials, DEMO_ADVERTISING: 'true' })).toBe(false);
+  const connected = { ...env, ...credentials, ADVERTISING_GOOGLE_REFRESH_TOKEN: 'token' };
+  expect(runtime.advertisingEnabled(connected)).toBe(true);
+  expect(runtime.advertisingEnabled({ ...connected, CALENDAR_MODE: 'fake' })).toBe(false);
+  expect(runtime.advertisingEnabled({ ...env, CALENDAR_MODE: 'fake', DEMO_ADVERTISING: 'true' })).toBe(true);
+});
+
 it('serializes moves while the provider is still writing and preserves the losing appointment', async () => {
   const calendar = fakeCalendar('America/New_York');
   vi.spyOn(runtime, 'calendarFor').mockReturnValue(calendar);

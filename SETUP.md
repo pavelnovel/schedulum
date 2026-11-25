@@ -15,37 +15,31 @@ Before you start, you need:
 
 ## 1. Create the Google OAuth client
 
-1. In the [Google Cloud console](https://console.cloud.google.com/), create a
-   project named **Schedulum**.
-2. Enable the **Google Calendar API** and the **Gmail API**: APIs & Services
-   → Library → each one → Enable. Gmail is only for sending visitors' notes
-   to you.
-3. In Google Auth Platform, choose **Get started**:
-   - App name: **Schedulum**
-   - User support and developer contact email: your address
-   - Audience: **External**
-   - Agree to the Google API Services User Data Policy.
-4. Under **Data Access**, add these three scopes and save:
-   - `https://www.googleapis.com/auth/calendar.events`
-   - `https://www.googleapis.com/auth/calendar.freebusy`
-   - `https://www.googleapis.com/auth/gmail.send`
-5. Under **Branding**, fill in the fields that Google requires before you can
-   publish, then save:
-   - Application home page: `https://meet.example.com`
-   - Application privacy policy link: `https://meet.example.com/privacy`
-   - Authorized domain: `example.com`
-6. Under **Audience**, select **Publish app**, then **Confirm**, to move the
-   app to **In production**. Google then says that the app "requires
-   verification". You can ignore that message, because verification is for
-   apps that other people sign in to.
+For one organizer, create a **Personal mode** project while signed in to the
+Google account that will host meetings. Guests book on your page and receive
+an invitation by email. Only the organizer signs into Google for Schedulum.
+This works with either your own domain or a Cloudflare `workers.dev` address.
 
-   > **Don't skip this step.** In Testing, Google expires refresh tokens after
-   > seven days, and booking then stops without warning. An unverified
-   > production app that only you sign in to is allowed.
+1. Open [Google’s Personal mode onboarding](https://console.cloud.google.com/auth/overview/personal).
+   Create or select your Personal mode project, choose **Desktop app**, and
+   save the client ID and secret when Google displays them.
+2. In that same project, open the [API Library](https://console.cloud.google.com/apis/library)
+   and enable **Google Calendar API** and **Gmail API**.
+3. Continue to section 2 below. The desktop client uses a local callback during
+   sign-in. You can use your assigned `workers.dev` hostname for the booking
+   page without registering a custom domain for Google branding.
 
-7. Under **Clients**, create an OAuth client with application type **Desktop
-   app**, named `Schedulum`. Google shows the client secret only once, in the
-   dialog that follows, so copy the client ID and secret before you close it.
+Personal mode limits consent to the project creator and has no seven-day
+testing token expiry. Workspace administrators can restrict access to these
+APIs. See [Google’s Personal mode guide](https://support.google.com/cloud/answer/15544987).
+
+If you already use an OAuth client, keep it. For a separate organizer on
+another Google account, create a Personal mode client under that account or
+use an existing client whose audience includes it. For an External client,
+enable both APIs, configure the consent screen and scopes, and use **In
+production** for long-lived bookings. If Google requires branding-domain
+verification for that setup, supply a domain you own. [Google’s audience settings](https://support.google.com/cloud/answer/15544987)
+and [domain requirements](https://developers.google.com/identity/verification/authentication-policy-compliance).
 
 ## 2. Connect your calendar
 
@@ -60,8 +54,7 @@ npm run connect-google
 ```
 
 Open the printed link and sign in as the account whose calendar takes
-bookings. At "Google hasn't verified this app", check that the developer email
-shown is yours, then choose **Advanced** → **Go to Schedulum (unsafe)**.
+bookings. Personal mode requires the account that created the Google project.
 
 Tick all three permissions:
 
@@ -114,24 +107,39 @@ npm run preview -- --var TURNSTILE_SECRET_KEY:1x0000000000000000000000000000000A
 
 ## 4. Deploy to Cloudflare
 
-Set your domain in `wrangler.toml`, both in `routes` and in `PUBLIC_URL`. If
-you don't have a domain on Cloudflare, delete both lines, and the page runs at
-`schedulum.<your-subdomain>.workers.dev`.
+### Choose the hostname and Turnstile keys before building
 
-Create the namespace that holds pushed busy times, and put its ID in the
-`[[kv_namespaces]]` block. If you won't push busy times from another server,
-delete that block instead.
+For a custom domain, set `routes` and `PUBLIC_URL` in `wrangler.toml`. To
+use Cloudflare’s address, choose your account’s subdomain in **Workers &
+Pages**, delete those two entries, and use
+`schedulum.<your-subdomain>.workers.dev`. In either case, set `site` in
+`astro.config.mjs` to the full HTTPS URL. [Cloudflare’s workers.dev guide](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/).
+
+In the Cloudflare dashboard, open **Turnstile** and add a **Managed** widget
+for that exact hostname. Replace `PUBLIC_TURNSTILE_SITE_KEY` in
+`.env.production` with its public site key **before** running
+`npm run deploy`. Save the matching secret key in your credential store.
+If you change the site key after a build, rebuild and deploy the page.
+
+### Deploy the Worker and connect its secrets
+
+Run `npx wrangler login` and confirm the selected account with
+`npx wrangler whoami`.
+
+For a personal calendar, remove the `[[kv_namespaces]]` block from
+`wrangler.toml`. If you use the optional cross-account busy sync, run
+`npx wrangler kv namespace create SYNCED_BUSY` and replace the example ID
+with the ID it returns. Keep the `BOOKING_COORDINATOR` binding and migration.
 
 ```bash
-npx wrangler login
-npx wrangler kv namespace create SYNCED_BUSY
 npm run deploy
+npx wrangler secret put TURNSTILE_SECRET_KEY
 ```
 
 `npm run deploy` builds the site and runs `wrangler deploy`. The first deploy
 creates the `schedulum` Worker and attaches your domain. When the domain's
 zone is in the same Cloudflare account, Cloudflare creates the DNS record and
-the certificate.
+the certificate. Paste the widget’s matching secret at Wrangler’s prompt.
 
 Copy the secrets from `.dev.vars` to the Worker. This command sends all four
 at once and prints none of them:
@@ -164,30 +172,23 @@ with it, so a new secret breaks every reschedule or cancel link sent so far.
 After that, every push to `main` deploys. `npm run deploy` is then only for a
 deploy from your own machine.
 
-### The spam check (Turnstile)
+### Optional Spoiled NYC advertising organizer
 
-Bookings and notes must pass Cloudflare Turnstile. Most visitors never see
-it, and it asks for a click only when it isn't sure.
+A personal fork serves only the personal booking routes. The optional
+`/spoiled-nyc` page is specific to Spoiled NYC. Connecting its separate
+organizer enables the page and its booking API together. Existing
+installations with all three organizer secrets stay enabled after an update.
 
-1. In the Cloudflare dashboard, open Application security → Turnstile →
-   **Add widget**. Name it `Schedulum`, add your page's hostname, keep
-   **Managed** mode, and create the widget.
-2. Put the site key in `.env.production` as `PUBLIC_TURNSTILE_SITE_KEY`. The
-   site key is public and committed, and the build puts it in the page.
-3. Store the secret key in the Worker:
+For this integration, run `GOOGLE_ACCOUNT=you@work.example npm run connect-google -- --advertising`
+with the work organizer’s Google account. If that account uses its own OAuth
+client, provide its client ID and secret through the `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` environment variables for this command. Upload the
+three `ADVERTISING_GOOGLE_` secrets using the commands it prints. Keep the
+organizer connected while guests still need to manage work appointments.
 
-   ```bash
-   npx wrangler secret put TURNSTILE_SECRET_KEY
-   ```
-
-The two keys work only as a pair. With the secret set, a missing site key or a
-key from another widget makes every booking fail with "The spam check didn't
-go through".
-
-### Spoiled NYC advertising organizer
-
-Set `GOOGLE_ACCOUNT` to the work email and run `npm run connect-google -- --advertising` to connect its Google Calendar.
-After approving Calendar access, follow the printed commands to upload the three `ADVERTISING_GOOGLE_` secrets.
+To try the work page locally, set `CALENDAR_MODE=fake` and
+`DEMO_ADVERTISING=true` in `.dev.vars` and restart the local server.
+Playwright then exercises both organizers using fake appointments.
 
 ### Optional: a message when someone books
 
@@ -272,6 +273,59 @@ three days and then stops counting, and each run's log line names it.
    disappear.
 5. Choose **Send me a note** and send one to yourself. It arrives in your
    inbox, from your own address.
+
+## Update an existing fork
+
+1. Check the live Worker’s **Deployments** and, for a Git-connected Worker,
+   its **Builds**. Record the live version, source commit and production
+   branch. In the fork, run `git remote -v` and `git status --short --branch`.
+   Start from the fork branch containing the owner’s current settings. The
+   example below uses `origin/main`. Commit any owner changes intended for
+   the update on the appropriate fork branch first.
+2. Choose a tag from [Schedulum releases](https://github.com/pavelnovel/schedulum/releases)
+   and read its migration notes. Prepare the merge in a separate worktree.
+   Substitute the tag you selected for the example value.
+
+   ```bash
+   release=v0.1.1
+   git fetch origin
+   git worktree add -b "update-schedulum-$release" "../schedulum-$release" origin/main
+   cd "../schedulum-$release"
+   git fetch --no-tags https://github.com/pavelnovel/schedulum.git "refs/tags/$release"
+   git merge --no-ff --no-commit FETCH_HEAD
+   git status --short
+   git diff HEAD
+   ```
+
+3. Resolve any conflicts and stage the resolved files. Review the host’s
+   identity, hours, topics, privacy copy, public URL, Turnstile site key,
+   Worker name, routes and KV namespace. Incorporate new Durable Object
+   migrations alongside the existing migration history. The live Worker
+   already holds its Google, Turnstile, and signing secrets. Preserve the
+   signing secret so guests can still use their existing private links.
+4. Test the merged result in the new worktree with a fresh demo configuration.
+
+   ```bash
+   npm ci
+   test -f .dev.vars || (umask 077 && cp .dev.vars.example .dev.vars)
+   npm run check
+   npm test
+   npm run build
+   npm run dev
+   ```
+
+   Confirm `CALENDAR_MODE=fake` before making test bookings. In a second
+   terminal in the same worktree, run `npx playwright install chromium`
+   and `npx playwright test`. If your fork changed the sample topics or
+   copy, adapt the corresponding test expectations. Open the local page,
+   book a time, move it through the private link, and cancel it.
+5. Commit the reviewed merge, push the update branch to your fork, and
+   merge it into the production branch when ready to deploy. If **Workers
+   Builds** watches that branch, the merge starts deployment. For a manual
+   deployment, run `npm run deploy` from the reviewed commit. Confirm the
+   new deployment in Cloudflare, then run the [live booking checks](#5-check-it-end-to-end).
+   If an update fails those checks, use the recorded version to check whether
+   the migration supports Cloudflare’s [rollback procedure](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/).
 
 ## Change things later
 

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { BookingError } from '../../lib/booking';
-import { coordinator, failure, readJson, str } from '../../lib/http';
+import { coordinator, failure, readJson, requireEnabledRoute, str } from '../../lib/http';
 import { verifyHuman } from '../../lib/turnstile';
 
 export const prerender = false;
@@ -8,6 +8,7 @@ export const prerender = false;
 export const POST: APIRoute = async ({ locals, request }) => {
   try {
     const body = await readJson(request.clone());
+    requireEnabledRoute(locals.env, body.routeId);
     // Honeypot: a field people never see. Bots fill it in.
     if (str(body.website)) throw new BookingError('invalid', 'Something went wrong. Try again.');
 

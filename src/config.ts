@@ -95,6 +95,7 @@ export const opening = {
 
 export const advertising = {
   name: 'spoiled NYC',
+  frameAncestors: "frame-ancestors 'self' https://spoilednyc.com https://www.spoilednyc.com https://staging.spoilednyc.com",
   site: 'https://spoilednyc.com/advertise',
   email: 'advertise@spoiledmedia.com',
   title: 'Book a meeting with spoiled NYC',

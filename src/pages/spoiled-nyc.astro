@@ -1,9 +1,20 @@
 ---
 import Booker from '../components/Booker.astro';
 import Layout from '../layouts/Layout.astro';
+import NotFound from './404.astro';
+import { advertisingEnabled } from '../lib/env';
 import { advertising } from '../config';
+
+export const prerender = false;
+
+const enabled = advertisingEnabled(Astro.locals.env);
+if (!enabled) Astro.response.status = 404;
+if (enabled && !import.meta.env.DEV) Astro.response.headers.set('content-security-policy', advertising.frameAncestors);
+Astro.response.headers.set('cache-control', 'no-store');
 ---
 
-<Layout title={advertising.title} description={advertising.route.response} path={`/${advertising.route.id}`} spoiled>
-  <Booker mode="book" initialRoute={advertising.route.id} />
-</Layout>
+{enabled ? (
+  <Layout title={advertising.title} description={advertising.route.response} path={`/${advertising.route.id}`} spoiled>
+    <Booker mode="book" initialRoute={advertising.route.id} />
+  </Layout>
+) : <NotFound />}

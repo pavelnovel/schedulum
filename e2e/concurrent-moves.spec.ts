@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('concurrent personal and work reschedules preserve the losing appointment', async ({ request }) => {
+test('concurrent reschedules across booking routes preserve the losing appointment', async ({ request }) => {
   const open = async (): Promise<string[]> => {
     const res = await request.get('/api/slots');
     expect(res.ok()).toBe(true);
@@ -9,7 +9,8 @@ test('concurrent personal and work reschedules preserve the losing appointment',
   const appointments: { token: string; original: string }[] = [];
 
   try {
-    for (const routeId of ['speaking', 'spoiled-nyc']) {
+    const secondRoute = test.info().project.metadata.advertising ? 'spoiled-nyc' : 'ai-systems';
+    for (const routeId of ['speaking', secondRoute]) {
       const [original] = await open();
       const response = await request.post('/api/book', {
         data: { routeId, start: original, name: 'Local test', email: `move-${crypto.randomUUID()}@example.com` },

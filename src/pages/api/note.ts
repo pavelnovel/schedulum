@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { host } from '../../config';
 import { BookingError } from '../../lib/booking';
 import { calendarMode, mailerFor } from '../../lib/env';
-import { failure, json, readJson, str } from '../../lib/http';
+import { failure, json, readJson, requireEnabledRoute, str } from '../../lib/http';
 import { noteMessage, validateNote } from '../../lib/note';
 import { verifyHuman } from '../../lib/turnstile';
 
@@ -12,6 +12,7 @@ export const prerender = false;
 export const POST: APIRoute = async ({ locals, request }) => {
   try {
     const body = await readJson(request);
+    requireEnabledRoute(locals.env, body.routeId);
     // Honeypot: a field people never see. Bots fill it in.
     if (str(body.website)) throw new BookingError('invalid', 'Something went wrong. Try again.');
 

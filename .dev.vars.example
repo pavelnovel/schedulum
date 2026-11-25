@@ -3,6 +3,8 @@
 # fake: an in-memory calendar with made-up busy blocks. Safe to click around.
 # google: your real calendar. Bookings send real invites.
 CALENDAR_MODE=fake
+# To try the optional Spoiled NYC organizer locally, uncomment this line.
+# DEMO_ADVERTISING=true
 PUBLIC_URL=http://localhost:4321
 SIGNING_SECRET=dev-only-signing-secret-change-me-0000000000
 

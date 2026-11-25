@@ -103,7 +103,21 @@ test('book with a topic, which sharpens the question and travels with the bookin
   await expect(page.getByRole('heading', { name: 'Cancelled' })).toBeVisible();
 });
 
+test('a personal fork omits the work organizer page and rejects its requests', async ({ page, request }) => {
+  test.skip(test.info().project.metadata.advertising);
+  const response = await page.goto('/spoiled-nyc');
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'There’s no page here' })).toBeVisible();
+  expect((await request.get('/api/slots?route=spoiled-nyc')).status()).toBe(404);
+  for (const path of ['/api/book', '/api/note']) {
+    expect((await request.post(path, { data: { routeId: 'spoiled-nyc' } })).status()).toBe(404);
+  }
+  await page.goto('/privacy');
+  await expect(page.locator('main')).not.toContainText('Spoiled NYC');
+});
+
 test('Spoiled advertisers book on the shared calendar with a fixed meeting type', async ({ page }) => {
+  test.skip(!test.info().project.metadata.advertising);
   await page.goto('/spoiled-nyc');
   await expect(page.getByRole('heading', { name: 'Book a meeting with spoiled NYC' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'spoiled NYC', exact: true })).toHaveAttribute('href', 'https://spoilednyc.com/advertise');

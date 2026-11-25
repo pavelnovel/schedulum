@@ -90,8 +90,14 @@ Fork the repository, then replace what's Pavel's:
 | [`.env.production`](.env.production) | The site key of your own Turnstile widget |
 | [`src/pages/privacy.astro`](src/pages/privacy.astro) | Your privacy page |
 
-Then follow [SETUP.md](SETUP.md) to create a Google OAuth client, connect
-your calendar, and deploy.
+For a first look, [run the local demo](#develop). It works without accounts.
+For your own live page, [follow the setup guide](SETUP.md) to connect your
+Google account, configure Turnstile for your hostname, and deploy. A personal
+fork has the personal booking routes by default. The separate Spoiled NYC page
+requires its [organizer configuration](SETUP.md#optional-spoiled-nyc-advertising-organizer).
+
+Already have a customized fork? [Update it to a release](SETUP.md#update-an-existing-fork)
+while keeping the host settings and existing guest links.
 
 Google Calendar is the only provider so far. The rest of the app talks to the
 `Calendar` interface in [`src/lib/calendar.ts`](src/lib/calendar.ts), so
@@ -108,8 +114,12 @@ test -f .dev.vars || (umask 077 && cp .dev.vars.example .dev.vars)  # local demo
 npm run dev                      # http://localhost:4321
 npm test                         # unit tests
 npx playwright install chromium  # once per test machine
-npx playwright test              # browser and accessibility tests, with the dev server running
+npx playwright test              # run in a second terminal while the dev server is running
 ```
+
+The browser tests use `http://localhost:4321`. If Astro prints a different
+local address, pass it to Playwright, for example
+`BASE_URL=http://localhost:4322 npx playwright test`.
 
 ## License
 
