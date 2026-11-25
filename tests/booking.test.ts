@@ -1,6 +1,6 @@
 import { testLocals } from './coordinator-fixture';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { advertising, meeting, minutesFor, routes, type Route } from '../src/config';
+import { advertising, host, meeting, minutesFor, routes, type Route } from '../src/config';
 import { book, BookingError, cancel, listSlots, lookup, MAX_UPCOMING_PER_GUEST, reschedule, type Deps } from '../src/lib/booking';
 import { withAdvertisingCalendar, type Calendar } from '../src/lib/calendar';
 import { fakeCalendar } from '../src/lib/fake';
@@ -60,7 +60,7 @@ describe('book', () => {
     const create = calendar.create.bind(calendar);
     calendar.create = (b) => ((summary = b.summary), create(b));
     await book(deps, { routeId: route.id, start: await firstSlot(), ...guest });
-    expect(summary).toBe('Ada Lovelace × Pavel');
+    expect(summary).toBe(`Ada Lovelace × ${host.firstName}`);
   });
 
   it('creates, reschedules, and cancels new Spoiled bookings on the work calendar', async () => {

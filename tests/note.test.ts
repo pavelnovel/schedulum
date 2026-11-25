@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { host } from '../src/config';
 import { gmailMailer, mime, noteMessage, validateNote } from '../src/lib/note';
 import { POST } from '../src/pages/api/note';
 
@@ -41,7 +42,7 @@ describe('noteMessage and mime', () => {
   const message = noteMessage(note, 'meet.pavelnovel.com', new Date('2026-10-26T12:00:00Z'));
 
   it('tells the host who wrote, about what, and when it is for them', () => {
-    expect(message.to).toBe('pkonopl@gmail.com');
+    expect(message.to).toBe(host.email);
     expect(message.subject).toBe('Ada Lovelace would like to find a time');
     expect(message.body).toContain('Ada Lovelace (ada@example.com) sent a note from meet.pavelnovel.com instead of booking.');
     expect(message.body).toContain('Topic: A talk, podcast, panel, or workshop');
@@ -59,7 +60,7 @@ describe('noteMessage and mime', () => {
   it('builds an email whose replies go to the visitor', () => {
     const raw = mime({ ...message, replyTo: { name: 'Zoë', email: 'zoe@example.com' }, subject: 'Zoë would like to find a time' }, 'pkonopl@gmail.com');
     const [head, body] = raw.split('\r\n\r\n');
-    expect(head).toContain('To: pkonopl@gmail.com');
+    expect(head).toContain(`To: ${host.email}`);
     expect(head).toMatch(/^Reply-To: =\?UTF-8\?B\?[A-Za-z0-9+/=]+\?= <zoe@example\.com>$/m);
     expect(head).toMatch(/^Subject: =\?UTF-8\?B\?/m);
     expect(head.split('\r\n').every((line) => /^[\x20-\x7e]+$/.test(line))).toBe(true);
@@ -126,7 +127,7 @@ describe('POST /api/note', () => {
   it('turns notes off, not open, when the spam check is switched off', async () => {
     const res = await call(ok, { CALENDAR_MODE: 'google' });
     expect(res.status).toBe(503);
-    expect((await res.json()).error.message).toBe('Notes are off for a moment. You can email pkonopl@gmail.com instead.');
+    expect((await res.json()).error.message).toBe(`Notes are off for a moment. You can email ${host.email} instead.`);
   });
 
   it('offers email when the note can’t be sent, without logging the note', async () => {
@@ -136,7 +137,7 @@ describe('POST /api/note', () => {
     const res = await call({ ...ok, turnstile: 'tok' }, { CALENDAR_MODE: 'google', TURNSTILE_SECRET_KEY: 'secret' });
     vi.unstubAllGlobals();
     expect(res.status).toBe(503);
-    expect((await res.json()).error.message).toBe('Couldn’t send your note just now. You can email pkonopl@gmail.com instead.');
+    expect((await res.json()).error.message).toBe(`Couldn’t send your note just now. You can email ${host.email} instead.`);
     expect(JSON.stringify(error.mock.calls)).not.toContain('Tuesday evening');
     expect(JSON.stringify(error.mock.calls)).not.toContain('ada@example.com');
     error.mockRestore();

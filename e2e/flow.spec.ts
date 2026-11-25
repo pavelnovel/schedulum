@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { host, meeting, opening } from '../src/config';
 
 const shots = process.env.SHOTS_DIR;
 const shot = async (page: Page, name: string) => {
@@ -27,7 +28,7 @@ async function pickTopic(page: Page, id: string) {
 
 test('book with no topic, then reschedule and cancel', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 }).filter({ visible: true })).toHaveText('Let’s find a time to talk');
+  await expect(page.getByRole('heading', { level: 1 }).filter({ visible: true })).toHaveText(opening.title);
   await page.waitForTimeout(700);
   await shot(page, '01-landing');
 
@@ -35,7 +36,7 @@ test('book with no topic, then reschedule and cancel', async ({ page }) => {
   await expect(page.locator('[data-when-text]')).toContainText(/\d:\d\d [AP]M – /);
   await page.locator('#f-name').fill('Ada Lovelace');
   await page.locator('#f-email').fill(unique());
-  await page.getByLabel(/What’s on your mind\?/).fill('Engines that weave algebraic patterns.');
+  await page.getByLabel(meeting.prompt, { exact: false }).fill('Engines that weave algebraic patterns.');
   await shot(page, '02-details');
 
   const [request] = await Promise.all([
@@ -49,11 +50,11 @@ test('book with no topic, then reschedule and cancel', async ({ page }) => {
   await shot(page, '03-booked');
 
   // Reschedule through the manage link.
-  // Follow the link's path on the server under test; PUBLIC_URL may name another origin.
-  const manage = new URL((await page.getByRole('link', { name: 'Reschedule or cancel' }).getAttribute('href'))!).pathname;
-  expect(manage).toMatch(/\/manage\/[0-9a-v]{26}\./);
-  await page.goto(manage!);
-  await expect(page.getByRole('heading', { name: /Your conversation with Pavel/ })).toBeVisible();
+  const manage = new URL((await page.getByRole('link', { name: 'Reschedule or cancel' }).getAttribute('href'))!);
+  expect(manage.origin).toBe(new URL(page.url()).origin);
+  expect(manage.pathname).toMatch(/\/manage\/[0-9a-v]{26}\./);
+  await page.goto(manage.href);
+  await expect(page.getByRole('heading', { name: `Your conversation with ${host.firstName}` })).toBeVisible();
   await expect(page.locator('[data-overview-facts]')).toContainText('A conversation');
   await shot(page, '04-manage');
 
@@ -67,15 +68,15 @@ test('book with no topic, then reschedule and cancel', async ({ page }) => {
   await shot(page, '05-confirm-move');
   await page.getByRole('button', { name: 'Reschedule', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Moved.' })).toBeVisible();
-  await expect(page.locator('[data-done-facts]')).toContainText('30 min');
+  await expect(page.locator('[data-done-facts]')).toContainText(`${meeting.minutes} min`);
 
   // Then cancel it.
-  await page.goto(manage!);
+  await page.goto(manage.href);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('button', { name: 'Cancel conversation' }).click();
   await expect(page.getByRole('heading', { name: 'Cancelled' })).toBeVisible();
 
-  await page.goto(manage!);
+  await page.goto(manage.href);
   await expect(page.getByRole('heading', { name: 'Nothing to change here' })).toBeVisible();
 });
 
@@ -432,7 +433,7 @@ test('without JavaScript, every topic and a way to get in touch are still there'
     await expect(topics.locator('p', { hasText: 'For people past the demo stage.' })).toBeVisible();
     await expect(topics.locator('p', { hasText: 'Conference talks, podcasts, panels' })).toBeVisible();
     await expect(page.locator('p', { hasText: 'Picking a time needs JavaScript.' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'pkonopl@gmail.com' })).toBeVisible();
+    await expect(page.getByRole('link', { name: host.email })).toBeVisible();
     await expect(page.getByRole('link', { name: 'LinkedIn' })).toBeVisible();
     // Nothing that looks like a control and does nothing.
     await expect(page.locator('[data-topic]').filter({ visible: true })).toHaveCount(0);

@@ -317,8 +317,10 @@ three days and then stops counting, and each run's log line names it.
    Confirm `CALENDAR_MODE=fake` before making test bookings. In a second
    terminal in the same worktree, run `npx playwright install chromium`
    and `npx playwright test`. If your fork changed the sample topics or
-   copy, adapt the corresponding test expectations. Open the local page,
-   book a time, move it through the private link, and cancel it.
+   copy, adapt the corresponding example tests. To exercise your personal
+   booking flow on its own, run
+   `npx playwright test --grep "book with no topic, then reschedule and cancel"`.
+   It follows the private link returned by your local site.
 5. Commit the reviewed merge, push the update branch to your fork, and
    merge it into the production branch when ready to deploy. If **Workers
    Builds** watches that branch, the merge starts deployment. For a manual

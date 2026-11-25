@@ -65,7 +65,7 @@ test('Tokyo: nothing in their hours, so the full schedule, said plainly, with a 
   await context.close();
 });
 
-test('a note reaches Pavel, and says so', async ({ browser }, info) => {
+test('a note reaches the host, and says so', async ({ browser }, info) => {
   const { context, page } = await visit(browser, info, { tz: 'Asia/Tokyo', path: '/speaking' });
   await page.locator('[data-fit]').getByRole('button', { name: 'Send me a note' }).click();
   await expect(page.locator('[data-pane="note"]')).toBeVisible();
@@ -342,7 +342,7 @@ test('a note still on its way doesn’t block a booking or pull the visitor back
   await page.locator('.slot-time').first().click();
   await page.getByRole('button', { name: 'Book this time' }).click();
   await expect(page.getByRole('heading', { name: 'You’re booked.' })).toBeVisible();
-  await expect(page.locator('[data-live]')).toHaveText(/Your note to Pavel was sent\.|You’re booked\./, { timeout: 6000 });
+  await expect(page.locator('[data-live]')).toHaveText(/Your note to .+ was sent\.|You’re booked\./, { timeout: 6000 });
   await page.waitForTimeout(3000);
   await expect(page.getByRole('heading', { name: 'You’re booked.' })).toBeVisible();
 
